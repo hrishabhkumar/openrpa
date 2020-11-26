@@ -40,8 +40,8 @@ namespace OpenRPA.OpenFlowDB
 
             var q = "{\"_id\": \"" + id + "\"}";
             if(!string.IsNullOrEmpty(filename)) q = "{\"filename\":\"" + filename + "\"}";
-            var rows = await global.webSocketClient.Query<JObject>("files", q);
-            if (rows.Length == 0) throw new Exception("File not found");
+            var rows = await global.webSocketClient.Query<JObject>("files", q, null, 100, 0, "{\"_id\": -1}");
+
             if (rows.Length == 0) throw new Exception("File not found");
             filename = rows[0]["filename"].ToString();
             id = rows[0]["_id"].ToString();
@@ -55,6 +55,8 @@ namespace OpenRPA.OpenFlowDB
             {
                 // client.Headers.Add("Authorization", "jwt " + global.webSocketClient);
                 client.Headers.Add(System.Net.HttpRequestHeader.Authorization, global.webSocketClient.jwt);
+
+                if(ignorepath) filename = System.IO.Path.GetFileName(filename);
                 await client.DownloadFileTaskAsync(new Uri(url), System.IO.Path.Combine(filepath, filename));
             }
             return 42;

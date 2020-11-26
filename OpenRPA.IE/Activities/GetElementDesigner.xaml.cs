@@ -55,6 +55,7 @@ namespace OpenRPA.IE
                 var selector = new IESelector("[{Selector: 'IE'}]");
                 selectors = new Interfaces.Selector.SelectorWindow("IE", selector, anchor, maxresults);
             }
+            selectors.Owner = Interfaces.GenericTools.MainWindow;
             if (selectors.ShowDialog() == true)
             {
                 ModelItem.Properties["Selector"].SetValue(new InArgument<string>() { Expression = new Literal<string>(selectors.vm.json) });
@@ -70,7 +71,14 @@ namespace OpenRPA.IE
                     {
                         Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<IEElement>("item")
                     });
-
+                    ModelItem.Properties["MinResults"].SetValue(new InArgument<int>()
+                    {
+                        Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<int>("0")
+                    });
+                    ModelItem.Properties["Timeout"].SetValue(new InArgument<TimeSpan>()
+                    {
+                        Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<TimeSpan>("TimeSpan.FromSeconds(0)")
+                    });
                 }
             }
         }

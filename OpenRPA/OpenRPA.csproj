@@ -2,7 +2,7 @@
   <PropertyGroup>
     <CefSharpAnyCpuSupport>true</CefSharpAnyCpuSupport>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net462</TargetFramework>
     <ApplicationIcon>Resources\open_rpa.ico</ApplicationIcon>
     <StartupObject />
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -10,8 +10,93 @@
     <Description>Base UI of OpenRPA, used as part of OpenRPA robot</Description>
     <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/open-rpa/openrpa</PackageProjectUrl>
-    <Version>1.0.106</Version>
-    <PackageReleaseNotes>1.0.106 Add support for single user install / fix issue with invokeopenrpa in agent mode / Add Move MailItem
+    <Version>1.1.20</Version>
+    <PackageReleaseNotes>1.1.20 Rollback code for auto adding namespaces
+1.1.19 Remove old updater, auto add namespaces
+1.1.18 Fix major issue with special charecters in nm
+1.1.17 Change frame messsages to json, to avoid conflict with certain webpages
+1.1.16 nm: Add support for SendText/SetText/SendKeys
+1.1.15 Create dedicated asyng get element without a body to avoid confusion on usage / hotfix selector window
+1.1.14 Add support for custom project folder, fix ui thread issue for invoke openrpa
+1.1.13 Various fixes, see commit history, Add support for local robot execution from powershell even when offline
+1.1.12 Fix "cannot select self" on nested windows elements
+1.1.11 Fix JArray parse error / Expose instance as variable / Upgrade CefSharp.Wpf
+1.1.10 Fix issue with importing namespaces when recording_add_to_designer is false
+1.1.9 Various small bug fixes
+1.1.8 Fix initialDirectory for SelectFile
+1.1.7 Quick fix of chrome update to UIElement type
+1.1.6 Fix caseing in nm select item by text
+1.1.5 Fix order in ExpandArchiveDesigner / Fix issue with timeout in nm
+1.1.4 Add CompressArchive and ExpandArchive
+1.1.3 Test rewriting GetElement as async, to support Cancel
+1.1.2 Minor improvements
+1.1.1 Re-Add NuGet Package support - BETA
+1.0.175 Beta: Add PowerShell support
+1.0.174 Test implementation of support for Arabic for readpdf
+1.0.171 Improve pagination for nm, bugfix for office close workbook, add firefox ready addon
+1.0.170 Fix a few issues with argument parsing for invoke openflow. Fix argument mapping UI for Invoke OpenRPA when robot is offline
+1.0.169 Fix excel sheet enumeration bug
+1.0.168 Add passwords for write/read cell, add support for removing password with close workbook, add protect worksheet/unprotect worksheet
+1.0.167 Improve rdservice, add support for running without freerdp as a service
+1.0.166 Add support to update div value
+1.0.165 Load extensions from project folder as well
+1.0.164 Fix selector variables for Open and Close Application
+1.0.163 Fix UTF8 encoding issue with nm extension
+1.0.162 Add OpenRPA.MSSpeech addon
+1.0.161 Add support for multiple file extensions in filter / remove debug from sap / add more ja translations
+1.0.160 Improve error message in invoke openrpa / add option to disable remote invoke with remote_allowed
+1.0.159 Add more ja translations / Add SelectFile Activity / preload all settings from settings.json
+1.0.158 upgrade flaui / Add ClearCache to windows.getelement / add ja translation
+1.0.157 Fix issue with recording keyboard
+1.0.156 Improve nm.WaitForDownload
+1.0.155 Add custom timeout on nm plugin messages
+1.0.154 Fix a few issues, refactor some interfaces, implement controlling isagent from a role
+1.0.153 Fix login error (not saving byte array properly)
+1.0.152 script.Add implementation variables to code designer
+1.0.151 Fix threading error in windows.getelement
+1.0.150 Fix reconnect issue
+1.0.149 Add disable local caching option on workflows
+1.0.148 Add support registry configuration / Add better support for windows elements in nm / fix bug in openrpa.Forms
+1.0.147 Add IsChecked to nmelement
+1.0.146 Add WaitForVanish to NMElement
+1.0.145 Fix type resolving / add recipient to rossum result
+1.0.144 Fix Download message from firefox
+1.0.143 Add WaitForDownload activity
+1.0.142 Update for generic database providers
+1.0.141 Update File Watcher / Add SelectFolder Activity / Fix Close tab for Edge
+1.0.140 ExecuteScript
+1.0.139 Fix default name / stop importing all default namespaces
+1.0.138 Fix windows click detector
+1.0.137 Small improvements to detector
+1.0.136 Improve parsing arguments when called remotely / Add Values to nmelement to support multi selects
+1.0.135 Update for new version of openflow
+1.0.134 fix orderby issue when fetching workflow and projects
+1.0.133 Fix launch IE error
+1.0.132 Fix addon after firefox update breaking things
+1.0.131 utilities: add SetAllRowsAdded
+1.0.130 openflow: Fix uniqe parsing error in insert or update, add UpdateFromDataTable
+1.0.129 Add support for better serialization of variables to and from python
+1.0.127 Allow int/bool and other non string values as selecotr variables. Force WaitForReady when using loop action in NM-GetElement. More SAP Improvements
+1.0.126 pre-release if new updates to SAP
+1.0.125 Fix missing dll on newer systems, improve sap
+1.0.124 Add Start Process
+1.0.123 Add CloseTab. Make OpenURL and GetElement auto shift to tab with same url as in selector, if one exists
+1.0.122 Improve edit in InvokeCode, Add more SAP Stuff
+1.0.121 Fix index error in readrange when HeaderRows is false / prepare recorder for SAP recording
+1.0.120 Fix endless loop bug in IE, filter out google sheet in chrome extension
+1.0.119 Add argument mapping dialog to Invoke Activities
+1.0.118 downgrade for win7 support / Add GetColor Activity
+1.0.117 Fix updating json, when using select button in selector
+1.0.116 Fix select value for IE, add SupportSelect for ie and nm
+1.0.115 Add Replace Activity
+1.0.114 Better error handlign when called form commandline. Fix UI bug that could sometimes make workflow list as running when not running
+1.0.112 Improve comment/uncomment rightclick menu
+1.0.111 Allow custom unique ids for xpath generation in nm
+1.0.110 Add support for nested getelement, when using xpath / better edit of json in selector
+1.0.109 Add query and MaxResults to GetMails
+1.0.108 Load all frames again, and add cords on getelement
+1.0.107 Fix issue with multiple frames and selector
+1.0.106 Add support for single user install / fix issue with invokeopenrpa in agent mode / Add Move MailItem
 1.0.105 Improve iframe support / update browser extenstion
 1.0.104 Skip ui lookup on click, when noone is listening
 1.0.103 Readd current designer for property dialog
@@ -143,9 +228,9 @@ Add toggle between embedded and locally installed python, Add PipInstall activit
     <None Include="$(OutputPath)\OpenRPA.exe.config" Pack="true" PackagePath="build" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="CefSharp.Wpf" Version="75.1.143" />
+    <PackageReference Include="CefSharp.Wpf" Version="85.3.130" />
     <PackageReference Include="DotNetProjects.Wpf.Toolkit" Version="5.0.43" />
-    <PackageReference Include="Extended.Wpf.Toolkit" Version="3.7.0" />
+    <PackageReference Include="Extended.Wpf.Toolkit" Version="3.8.1" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
     <PackageReference Include="NuGet.Common" Version="5.4.0" />
     <PackageReference Include="NuGet.Packaging" Version="5.4.0" />
@@ -158,6 +243,7 @@ Add toggle between embedded and locally installed python, Add PipInstall activit
     <None Remove="Activities\CommentOutDesigner.xaml" />
     <None Remove="Activities\CopyClipboardDesigner.xaml" />
     <None Remove="Activities\DetectorDesigner.xaml" />
+    <None Remove="Activities\FocusElementDesigner.xaml" />
     <None Remove="Activities\ForEachDataRowDesigner.xaml" />
     <None Remove="Activities\HighlightElementDesigner.xaml" />
     <None Remove="Activities\InsertClipboardDesigner.xaml" />
@@ -184,6 +270,7 @@ Add toggle between embedded and locally installed python, Add PipInstall activit
     <None Remove="Resources\Buttons\Delete.png" />
     <None Remove="Resources\Buttons\Delete_2.png" />
     <None Remove="Resources\Buttons\Delete_color.png" />
+    <None Remove="Resources\Buttons\edge.png" />
     <None Remove="Resources\Buttons\Export.png" />
     <None Remove="Resources\Buttons\GetHTMLText.png" />
     <None Remove="Resources\Buttons\ImageClick.png" />
@@ -379,6 +466,7 @@ Add toggle between embedded and locally installed python, Add PipInstall activit
     <None Remove="Views\InsertText.xaml" />
     <None Remove="Views\KeyboardSeqWindow.xaml" />
     <None Remove="Views\OpenProject.xaml" />
+    <None Remove="Views\PackageManager.xaml" />
     <None Remove="Views\PermissionsWindow.xaml" />
     <None Remove="Views\RecorderPlugins.xaml" />
     <None Remove="Views\RunPlugins.xaml" />
@@ -392,6 +480,9 @@ Add toggle between embedded and locally installed python, Add PipInstall activit
     <None Remove="Views\WorkflowInstances.xaml" />
   </ItemGroup>
   <ItemGroup>
+    <Page Include="Activities\FocusElementDesigner.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Activities\ShowBalloonTipDesigner.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -446,6 +537,9 @@ Add toggle between embedded and locally installed python, Add PipInstall activit
     <Page Include="Views\AgentViewProjects.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Views\PackageManager.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Views\WorkflowInstances.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -478,6 +572,7 @@ Add toggle between embedded and locally installed python, Add PipInstall activit
     <Resource Include="Resources\Buttons\Button.png" />
     <Resource Include="Resources\Buttons\Clear.png" />
     <Resource Include="Resources\Buttons\CloseWebdriver.png" />
+    <Resource Include="Resources\Buttons\edge.png" />
     <Resource Include="Resources\Buttons\Mouse.png" />
     <Resource Include="Resources\Buttons\OpenBrowser.png" />
     <Resource Include="Resources\Buttons\OpenFirefox.png" />

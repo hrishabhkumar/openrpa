@@ -26,6 +26,7 @@ namespace OpenRPA
         public Workflow()
         {
             Serializable = true;
+            IsVisible = true;
         }
         public string queue { get { return GetProperty<string>(); } set { SetProperty(value); } }        
         public string Xaml { get { return GetProperty<string>(); } set { _activity = null; SetProperty(value); } }
@@ -92,7 +93,7 @@ namespace OpenRPA
                 var instace = Instances;
                 if (instace.Count() > 0)
                 {
-                    var running = instace.Where(x => x.isCompleted == false);
+                    var running = instace.Where(x => x.isCompleted == false).ToList();
                     if (running.Count() > 0)
                     {
                         state = "running";
@@ -141,7 +142,7 @@ namespace OpenRPA
         {
             get
             {
-                foreach (var i in WorkflowInstance.Instances)
+                foreach (var i in WorkflowInstance.Instances.ToList())
                 {
                     if (!string.IsNullOrEmpty(_id) && i.WorkflowId == _id)
                     {
@@ -155,8 +156,8 @@ namespace OpenRPA
             }
         }
         [JsonIgnore]
-        public Project Project { get; set; }
-        public static Workflow FromFile(Project project, string Filename)
+        public IProject Project { get; set; }
+        public static Workflow FromFile(IProject project, string Filename)
         {
             var result = new Workflow();
             result._type = "workflow";
@@ -168,7 +169,7 @@ namespace OpenRPA
             //sresult.Instances = new System.Collections.ObjectModel.ObservableCollection<WorkflowInstance>();
             return result;
         }
-        public static Workflow Create(Project Project, string Name)
+        public static Workflow Create(IProject Project, string Name)
         {
             Workflow workflow = new Workflow { Project = Project, name = Name, _acl = Project._acl };
             bool isUnique = false; int counter = 1;
@@ -230,6 +231,11 @@ namespace OpenRPA
                     //}).Result;
                     System.IO.File.WriteAllText(workflowfilepath, xaml);
                 });
+                return;
+            }
+            if(Project.disable_local_caching)
+            {
+                if (System.IO.File.Exists(workflowfilepath)) System.IO.File.Delete(workflowfilepath);
                 return;
             }
             System.IO.File.WriteAllText(workflowfilepath, Xaml);
@@ -441,6 +447,8 @@ namespace OpenRPA
                 }
             }
         }
+        [JsonIgnore]
+        public bool IsVisible { get { return GetProperty<bool>(); } set { SetProperty(value); } } 
     }
 
 }

@@ -20,12 +20,21 @@ namespace OpenRPA.Office.Activities
     [LocalizedDisplayName("activity_closeworkbook", typeof(Resources.strings))]
     public class CloseWorkbook : CodeActivity
     {
-        [RequiredArgument]
+        [System.ComponentModel.Category("Misc")]
+        public virtual InArgument<bool> RemoveReadPassword { get; set; }
+        [System.ComponentModel.Category("Misc")]
+        public virtual InArgument<string> ReadPassword { get; set; }
+        [System.ComponentModel.Category("Misc")]
+        public virtual InArgument<bool> RemoveWritePassword { get; set; }
+        [System.ComponentModel.Category("Misc")]
+        public virtual InArgument<string> WritePassword { get; set; }
+
+        // [RequiredArgument]
         [Category("Input")]
         [OverloadGroup("asworkbook")]
         [LocalizedDisplayName("activity_closeworkbook_workbook", typeof(Resources.strings)), LocalizedDescription("activity_closeworkbook_workbook_help", typeof(Resources.strings))]
         public InOutArgument<Microsoft.Office.Interop.Excel.Workbook> Workbook { get; set; }
-        [RequiredArgument]
+        // [RequiredArgument]
         [Category("Input")]
         [OverloadGroup("asfilename")]
         [LocalizedDisplayName("activity_closeworkbook_filename", typeof(Resources.strings)), LocalizedDescription("activity_closeworkbook_filename_help", typeof(Resources.strings))]
@@ -36,17 +45,20 @@ namespace OpenRPA.Office.Activities
         public InArgument<bool> SaveChanges { get; set; } = true;
         protected override void Execute(CodeActivityContext context)
         {
+            var readPassword = ReadPassword.Get(context);
+            if (string.IsNullOrEmpty(readPassword)) readPassword = null;
+            var writePassword = WritePassword.Get(context);
+            if (string.IsNullOrEmpty(writePassword)) writePassword = null;
+            var removeReadPassword = RemoveReadPassword.Get(context);
+            var removeWritePassword = RemoveWritePassword.Get(context);
+
             var workbook = Workbook.Get(context);
             var filename = Filename.Get(context);
             var saveChanges = SaveChanges.Get(context);
             if (!string.IsNullOrEmpty(filename)) filename = Environment.ExpandEnvironmentVariables(filename);
-            if (string.IsNullOrEmpty(filename))
+            if (!string.IsNullOrEmpty(filename))
             {
-                workbook.Close(saveChanges);
-            }
-            else
-            {
-                int workbookcount = 0;
+                bool foundit = false;
                 foreach (Microsoft.Office.Interop.Excel.Workbook w in officewrap.application.Workbooks)
                 {
                     if (w.FullName == filename || string.IsNullOrEmpty(filename))
@@ -54,7 +66,7 @@ namespace OpenRPA.Office.Activities
                         try
                         {
                             workbook = w;
-                            w.Close(saveChanges);
+                            foundit = true;
                             //worksheet = workbook.ActiveSheet;
                             break;
                         }
@@ -64,10 +76,36 @@ namespace OpenRPA.Office.Activities
                         }
                     }
                 }
-                if(workbookcount== 0 || string.IsNullOrEmpty(filename))
+                if(!foundit)
                 {
-                    officewrap.application.Quit();
+                    Workbook tempworkbook = officewrap.application.ActiveWorkbook;
+                    if(saveChanges && tempworkbook != null)
+                    {
+                        tempworkbook.SaveAs(Filename: filename, Password: readPassword, WriteResPassword: writePassword);
+                        workbook = tempworkbook;
+                    }
                 }
+            } 
+            if(workbook!=null)
+            {
+                officewrap.application.DisplayAlerts = false;
+                if (!string.IsNullOrEmpty(readPassword)) { workbook.Password = readPassword; saveChanges = true; }
+                if (removeReadPassword) { workbook.Password = ""; saveChanges = true; }
+                if (!string.IsNullOrEmpty(writePassword)) { workbook.WritePassword = writePassword; saveChanges = true; }
+                if (removeWritePassword) { workbook.WritePassword = "";  saveChanges = true; }
+                //if (saveChanges || removeWritePassword || removeReadPassword)
+                //{
+                //    //if(removeWritePassword || removeReadPassword || )
+                //    //if (string.IsNullOrEmpty(readPassword) && !string.IsNullOrEmpty(writePassword) )
+                //    // workbook.SaveAs(Filename: filename, Password: readPassword, WriteResPassword: writePassword);
+                //}
+                workbook.Close(saveChanges);
+                officewrap.application.DisplayAlerts = true;
+            }
+
+            if (officewrap.application.Workbooks.Count == 0)
+            {
+                officewrap.application.Quit();
             }
         }
         public new string DisplayName

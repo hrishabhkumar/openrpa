@@ -54,6 +54,7 @@ namespace OpenRPA.Windows
                 var selector = new WindowsSelector("[{Selector: 'Windows'}]");
                 selectors = new Interfaces.Selector.SelectorWindow("Windows", selector, anchor, maxresults);
             }
+            // selectors.Owner = GenericTools.MainWindow; -- Locks up and never returns ?
             if (selectors.ShowDialog() == true)
             {
                 ModelItem.Properties["Selector"].SetValue(new InArgument<string>() { Expression = new Literal<string>(selectors.vm.json) });
@@ -69,7 +70,14 @@ namespace OpenRPA.Windows
                     {
                         Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<IElement>("item")
                     });
-
+                    ModelItem.Properties["MinResults"].SetValue(new InArgument<int>()
+                    {
+                        Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<int>("0")
+                    });
+                    ModelItem.Properties["Timeout"].SetValue(new InArgument<TimeSpan>()
+                    {
+                        Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<TimeSpan>("TimeSpan.FromSeconds(0)")
+                    });
                 }
             }
         }

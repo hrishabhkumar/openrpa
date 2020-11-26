@@ -20,7 +20,7 @@ namespace OpenRPA.IE
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "IDE1006")]
         public static treeelement[] _GetRootElements(Selector anchor)
         {
-            var browser = Browser.GetBrowser();
+            var browser = Browser.GetBrowser(true);
             if (browser == null)
             {
                 Log.Warning("Failed locating an Internet Explore instance");
@@ -103,7 +103,7 @@ namespace OpenRPA.IE
                 var p = System.Diagnostics.Process.GetProcessById(e.Element.ProcessId);
                 if (p.ProcessName != "iexplore" && p.ProcessName != "iexplore.exe") return;
 
-                var browser = new Browser(e.Element.RawElement);
+                var browser = new Browser();
                 var htmlelement = browser.ElementFromPoint(e.X, e.Y);
                 if (htmlelement == null) { return; }
 
@@ -156,9 +156,7 @@ namespace OpenRPA.IE
             if (e.UIElement.ProcessId < 1) return false;
             var p = System.Diagnostics.Process.GetProcessById(e.UIElement.ProcessId);
             if(p.ProcessName!="iexplore" && p.ProcessName != "iexplore.exe") return false;
-
-            var browser = new Browser(e.UIElement.RawElement);
-
+            var browser = new Browser();
 
             var htmlelement = browser.ElementFromPoint(e.X, e.Y);
             if (htmlelement == null) { return false; }
@@ -188,7 +186,7 @@ namespace OpenRPA.IE
                 MSHTML.IHTMLInputElement inputelement = (MSHTML.IHTMLInputElement)htmlelement;
                 e.SupportInput = (inputelement.type.ToLower() == "text" || inputelement.type.ToLower() == "password");
             }
-            e.SupportSelect = false;
+            e.SupportSelect = htmlelement.tagName.ToLower() == "select";
             return true;
         }
         public void Initialize(IOpenRPAClient client)
@@ -211,16 +209,23 @@ namespace OpenRPA.IE
             if (string.IsNullOrEmpty(url)) return null;
             GenericTools.RunUI(() =>
             {
-                var browser = Browser.GetBrowser(url);
+                var browser = Browser.GetBrowser(true, url);
                 var doc = browser.Document;
                 if (url != doc.url) doc.url = url;
                 browser.Show();
                 var sw = new System.Diagnostics.Stopwatch();
                 sw.Start();
-                while (sw.Elapsed < timeout && doc.readyState != "complete" && doc.readyState != "interactive")
+                while (sw.Elapsed < timeout)
                 {
-                    Log.Debug("pending complete, readyState: " + doc.readyState);
-                    Thread.Sleep(100);
+                    try
+                    {
+                        Log.Debug("pending complete, readyState: " + doc.readyState);
+                        Thread.Sleep(100);
+                        if (doc.readyState != "complete" && doc.readyState != "interactive") break;
+                    }
+                    catch (Exception)
+                    {
+                    }
                 }
             });
 

@@ -101,6 +101,12 @@ namespace OpenRPA.Script.Activities
                     variables.Add(v.DisplayName, rtype);
                     variablevalues.Add(v.DisplayName, value);
                 }
+                string WorkflowInstanceId = context.WorkflowInstanceId.ToString();
+
+                var instance = Plugin.client.GetWorkflowInstanceByInstanceId(WorkflowInstanceId);
+                variables.Add("instance", typeof(IWorkflowInstance));
+                variablevalues.Add("instance", instance);
+
                 string sourcecode = code;
                 if (namespaces == null)
                 {
@@ -269,17 +275,30 @@ namespace OpenRPA.Script.Activities
                                         PyObject pyobj = scope.Get(parameter.Key);
                                         if (pyobj == null) continue;
                                         PropertyDescriptor myVar = context.DataContext.GetProperties().Find(parameter.Key, true);
+                                        if (myVar == null) continue;
                                         if (myVar.PropertyType == typeof(string))
                                             myVar.SetValue(context.DataContext, pyobj.ToString());
                                         else if (myVar.PropertyType == typeof(int)) myVar.SetValue(context.DataContext, int.Parse(pyobj.ToString()));
                                         else if (myVar.PropertyType == typeof(bool)) myVar.SetValue(context.DataContext, bool.Parse(pyobj.ToString()));
-                                        else Log.Information("Ignorering variable " + parameter.Key + " of type " + myVar.PropertyType.FullName);
+                                        else
+                                        {
+                                            try
+                                            {
+                                                var obj = Newtonsoft.Json.JsonConvert.DeserializeObject(pyobj.ToString(), myVar.PropertyType);
+                                                myVar.SetValue(context.DataContext, obj);
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                Log.Information("Failed variable " + parameter.Key + " of type " + myVar.PropertyType.FullName + " " + ex.Message);
+                                            }
+                                        }
+
                                     }
                                 }
                                 //lck = PythonEngine.AcquireLock();
                                 //PythonEngine.Exec(code);
                             }
-                            catch (Exception ex)
+                            catch (Exception)
                             {
                                 //Log.Error(ex.ToString());
                                 throw;
@@ -408,12 +427,15 @@ namespace OpenRPA.Script.Activities
 
                 if (compile.Errors.HasErrors)
                 {
-                    string text = "Compile error: ";
+                    string text = "";
                     foreach (CompilerError ce in compile.Errors)
                     {
-                        text += "rn" + ce.ToString();
+                        if (!ce.IsWarning)
+                        {
+                            text += ce.ToString();
+                            Log.Error(ce.ToString());
+                        }
                     }
-                    Log.Error(text);
                     throw new Exception(text);
                 }
                 cache.Add(code, compile);
@@ -635,8 +657,8 @@ namespace OpenRPA.Script.Activities
                     return loadedAssemblies[resourceName];
                 }
 
-            // looks for the assembly from the resources and load it
-            using (System.IO.Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+                // looks for the assembly from the resources and load it
+                using (System.IO.Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
                 {
                     if (stream != null)
                     {

@@ -1,9 +1,11 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using OpenRPA.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -18,9 +20,9 @@ namespace OpenRPA.NM
         public NMElement[] Children {
             get {
                 var result = new List<NMElement>();
-                if (chromeelement.ContainsKey("content"))
+                if (Attributes.ContainsKey("content"))
                 {
-                    if (!(chromeelement["content"] is JArray content)) return result.ToArray();
+                    if (!(Attributes["content"] is JArray content)) return result.ToArray();
                     foreach (var c in content)
                     {
                         try
@@ -67,7 +69,7 @@ namespace OpenRPA.NM
                 
             }
         }
-        private Dictionary<string, object> chromeelement { get; set; }
+        public Dictionary<string, object> Attributes { get; set; }
         public string xpath { get; set; }
         public string cssselector { get; set; }
         public string tagname { get; set; }
@@ -93,16 +95,16 @@ namespace OpenRPA.NM
                 catch (Exception)
                 {
                 }
-                chromeelement = new Dictionary<string, object>();
+                Attributes = new Dictionary<string, object>();
                 if(c!=null)
                     foreach (var kp in c )
                     {
-                        if(chromeelement.ContainsKey(kp.Key.ToLower()))
+                        if(Attributes.ContainsKey(kp.Key.ToLower()))
                         {
-                            chromeelement[kp.Key.ToLower()] = kp.Value;
+                            Attributes[kp.Key.ToLower()] = kp.Value;
                         } else
                         {
-                            chromeelement.Add(kp.Key.ToLower(), kp.Value);
+                            Attributes.Add(kp.Key.ToLower(), kp.Value);
                         }
                         
                     }
@@ -115,22 +117,22 @@ namespace OpenRPA.NM
                 //        chromeelement[a.Key] = a.Value;
                 //    }
                 //}
-                if (chromeelement.ContainsKey("name")) Name = chromeelement["name"].ToString();
-                if (chromeelement.ContainsKey("id")) id = chromeelement["id"].ToString();
-                if (chromeelement.ContainsKey("tagname")) tagname = chromeelement["tagname"].ToString();
-                if (chromeelement.ContainsKey("classname")) classname = chromeelement["classname"].ToString();
-                if (chromeelement.ContainsKey("type")) type = chromeelement["type"].ToString();
-                if (chromeelement.ContainsKey("xpath")) xpath = chromeelement["xpath"].ToString();
-                if (chromeelement.ContainsKey("cssselector")) cssselector = chromeelement["cssselector"].ToString();
-                if (chromeelement.ContainsKey("cssPath")) cssselector = chromeelement["cssPath"].ToString();
-                if (chromeelement.ContainsKey("csspath")) cssselector = chromeelement["csspath"].ToString();
-                if (chromeelement.ContainsKey("zn_id")) zn_id = int.Parse(chromeelement["zn_id"].ToString());
+                if (Attributes.ContainsKey("name")) Name = Attributes["name"].ToString();
+                if (Attributes.ContainsKey("id")) id = Attributes["id"].ToString();
+                if (Attributes.ContainsKey("tagname")) tagname = Attributes["tagname"].ToString();
+                if (Attributes.ContainsKey("classname")) classname = Attributes["classname"].ToString();
+                if (Attributes.ContainsKey("type")) type = Attributes["type"].ToString();
+                if (Attributes.ContainsKey("xpath")) xpath = Attributes["xpath"].ToString();
+                if (Attributes.ContainsKey("cssselector")) cssselector = Attributes["cssselector"].ToString();
+                if (Attributes.ContainsKey("cssPath")) cssselector = Attributes["cssPath"].ToString();
+                if (Attributes.ContainsKey("csspath")) cssselector = Attributes["csspath"].ToString();
+                if (Attributes.ContainsKey("zn_id")) zn_id = int.Parse(Attributes["zn_id"].ToString());
 
-                if (chromeelement.ContainsKey("isvisible")) IsVisible = bool.Parse(chromeelement["isvisible"].ToString());
-                if (chromeelement.ContainsKey("display")) Display = chromeelement["display"].ToString();
-                if (chromeelement.ContainsKey("isvisibleonscreen")) isVisibleOnScreen = bool.Parse(chromeelement["isvisibleonscreen"].ToString());
-                if (chromeelement.ContainsKey("disabled")) Disabled = bool.Parse(chromeelement["disabled"].ToString());
-                if (string.IsNullOrEmpty(Name) && tagname == "OPTION" && chromeelement.ContainsKey("content"))
+                if (Attributes.ContainsKey("isvisible")) IsVisible = bool.Parse(Attributes["isvisible"].ToString());
+                if (Attributes.ContainsKey("display")) Display = Attributes["display"].ToString();
+                if (Attributes.ContainsKey("isvisibleonscreen")) isVisibleOnScreen = bool.Parse(Attributes["isvisibleonscreen"].ToString());
+                if (Attributes.ContainsKey("disabled")) Disabled = bool.Parse(Attributes["disabled"].ToString());
+                if (string.IsNullOrEmpty(Name) && tagname == "OPTION" && Attributes.ContainsKey("content"))
                 {
                     Name = Text;
                 }
@@ -167,8 +169,19 @@ namespace OpenRPA.NM
         {
             get
             {
-                if (chromeelement.ContainsKey("text")) return chromeelement["text"].ToString();
-                if (chromeelement.ContainsKey("innertext")) return chromeelement["innertext"].ToString();
+                if(!string.IsNullOrEmpty(tagname) && tagname.ToLower() == "select")
+                {
+                    if (Attributes.ContainsKey("text")) return Attributes["text"].ToString();
+                    if (Attributes.ContainsKey("innertext")) return Attributes["innertext"].ToString();
+                }
+                if (Attributes.ContainsKey("text")) return Attributes["text"].ToString();
+                if (Attributes.ContainsKey("innertext")) return Attributes["innertext"].ToString();
+                if(!hasRefreshed)
+                {
+                    Refresh();
+                    if (Attributes.ContainsKey("text")) return Attributes["text"].ToString();
+                    if (Attributes.ContainsKey("innertext")) return Attributes["innertext"].ToString();
+                }
                 return null;
             }
             set
@@ -180,33 +193,240 @@ namespace OpenRPA.NM
                     {
                         foreach (var item in Children)
                         {
-                            if ((!string.IsNullOrEmpty(item.Text) && item.Text.ToLower() == value) || (string.IsNullOrEmpty(item.Text) && string.IsNullOrEmpty(value)))
+                            if ((!string.IsNullOrEmpty(item.Text) && !string.IsNullOrEmpty(value) && item.Text.ToLower() == value.ToLower()) || (string.IsNullOrEmpty(item.Text) && string.IsNullOrEmpty(value)))
                             {
                                 Value = item.Value;
                                 return;
                             }
                         }
                     }
-                    //var tab = NMHook.tabs.Where(x => x.id == message.tabid).FirstOrDefault();
-                    //if (tab == null) throw new ElementNotFoundException("Unknown tabid " + message.tabid);
-                    //// NMHook.HighlightTab(tab);
-                    //var updateelement = new NativeMessagingMessage("updateelementtext", PluginConfig.debug_console_output)
-                    //{
-                    //    browser = message.browser,
-                    //    cssPath = cssselector,
-                    //    xPath = xpath,
-                    //    tabid = message.tabid,
-                    //    frameId = message.frameId,
-                    //    data = value
-                    //};
-                    //var subsubresult = NMHook.sendMessageResult(updateelement, true, TimeSpan.FromSeconds(3));
-                    //if (subsubresult == null) throw new Exception("Failed setting html element value");
-                    ////System.Threading.Thread.Sleep(500);
-                    //if (PluginConfig.wait_for_tab_after_set_value)
-                    //{
-                    //    NMHook.WaitForTab(updateelement.tabid, updateelement.browser, TimeSpan.FromSeconds(5));
-                    //}
-                    //return;
+                }
+            }
+        }
+        public string SendText
+        {
+            get
+            {
+                string result = null;
+                if (Attributes.ContainsKey("value")) result = Attributes["value"].ToString();
+                if (Attributes.ContainsKey("innertext") && string.IsNullOrEmpty(result)) result = Attributes["innertext"].ToString();
+                if (string.IsNullOrEmpty(result)) result = Text;
+                return result;
+            }
+            set
+            {
+                if (NMHook.connected)
+                {
+                    var tab = NMHook.FindTabById(browser, message.tabid);
+                    if (tab == null) throw new ElementNotFoundException("Unknown tabid " + message.tabid);
+                    var updateelement = new NativeMessagingMessage("sendtext", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
+                    {
+                        browser = message.browser,
+                        zn_id = zn_id,
+                        tabid = message.tabid,
+                        frameId = message.frameId,
+                        data = Interfaces.Extensions.Base64Encode(value),
+                        result = "value"
+                    };
+                    var temp = Interfaces.Extensions.Base64Decode(updateelement.data);
+                    if (value == null) updateelement.data = null;
+                    var subsubresult = NMHook.sendMessageResult(updateelement, true, PluginConfig.protocol_timeout);
+                    if (subsubresult == null) throw new Exception("Failed setting html element value");
+                    if (PluginConfig.wait_for_tab_after_set_value)
+                    {
+                        NMHook.WaitForTab(updateelement.tabid, updateelement.browser, TimeSpan.FromSeconds(5));
+                    }
+                    return;
+                }
+            }
+        }
+        public string SetText
+        {
+            get
+            {
+                string result = null;
+                if (Attributes.ContainsKey("value")) result = Attributes["value"].ToString();
+                if (Attributes.ContainsKey("innertext") && string.IsNullOrEmpty(result)) result = Attributes["innertext"].ToString();
+                if (string.IsNullOrEmpty(result)) result = Text;
+                return result;
+            }
+            set
+            {
+                if (NMHook.connected)
+                {
+                    var tab = NMHook.FindTabById(browser, message.tabid);
+                    if (tab == null) throw new ElementNotFoundException("Unknown tabid " + message.tabid);
+                    var updateelement = new NativeMessagingMessage("settext", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
+                    {
+                        browser = message.browser,
+                        zn_id = zn_id,
+                        tabid = message.tabid,
+                        frameId = message.frameId,
+                        data = Interfaces.Extensions.Base64Encode(value),
+                        result = "value"
+                    };
+                    var temp = Interfaces.Extensions.Base64Decode(updateelement.data);
+                    if (value == null) updateelement.data = null;
+                    var subsubresult = NMHook.sendMessageResult(updateelement, true, PluginConfig.protocol_timeout);
+                    if (subsubresult == null) throw new Exception("Failed setting html element value");
+                    if (PluginConfig.wait_for_tab_after_set_value)
+                    {
+                        NMHook.WaitForTab(updateelement.tabid, updateelement.browser, TimeSpan.FromSeconds(5));
+                    }
+                    return;
+                }
+            }
+        }
+        public string SendKeys
+        {
+            get
+            {
+                string result = null;
+                if (Attributes.ContainsKey("value")) result = Attributes["value"].ToString();
+                if (Attributes.ContainsKey("innertext") && string.IsNullOrEmpty(result)) result = Attributes["innertext"].ToString();
+                if (string.IsNullOrEmpty(result)) result = Text;
+                return result;
+            }
+            set
+            {
+                if (NMHook.connected)
+                {
+                    var tab = NMHook.FindTabById(browser, message.tabid);
+                    if (tab == null) throw new ElementNotFoundException("Unknown tabid " + message.tabid);
+                    var updateelement = new NativeMessagingMessage("sendkeys", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
+                    {
+                        browser = message.browser,
+                        zn_id = zn_id,
+                        tabid = message.tabid,
+                        frameId = message.frameId,
+                        data = Interfaces.Extensions.Base64Encode(value),
+                        result = "value"
+                    };
+                    var temp = Interfaces.Extensions.Base64Decode(updateelement.data);
+                    if (value == null) updateelement.data = null;
+                    var subsubresult = NMHook.sendMessageResult(updateelement, true, PluginConfig.protocol_timeout);
+                    if (subsubresult == null) throw new Exception("Failed setting html element value");
+                    if (PluginConfig.wait_for_tab_after_set_value)
+                    {
+                        NMHook.WaitForTab(updateelement.tabid, updateelement.browser, TimeSpan.FromSeconds(5));
+                    }
+                    return;
+                }
+            }
+        }
+        public string[] Values
+        {
+            get
+            {
+                string[] result = new string[] { };
+                if (Attributes.ContainsKey("values"))
+                {
+                    var json = Attributes["values"].ToString();
+                    result = JsonConvert.DeserializeObject<string[]>(json);
+                }
+                if(result==null|| result.Length==0)
+                {
+                    if(!string.IsNullOrEmpty(Value))
+                    {
+                        result = new string[] { Value };
+                    }
+                }
+                return result;
+            }
+            set
+            {
+                if (NMHook.connected)
+                {
+                    var tab = NMHook.FindTabById(browser, message.tabid);
+                    if (tab == null) throw new ElementNotFoundException("Unknown tabid " + message.tabid);
+                    // NMHook.HighlightTab(tab);
+
+                    var updateelement = new NativeMessagingMessage("updateelementvalues", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
+                    {
+                        browser = message.browser,
+                        //cssPath = cssselector,
+                        //xPath = xpath,
+                        //tabid = message.tabid,
+                        //frameId = message.frameId,
+                        //data = value
+                        zn_id = zn_id,
+                        tabid = message.tabid,
+                        frameId = message.frameId,
+                        data = Interfaces.Extensions.Base64Encode(JsonConvert.SerializeObject(value))
+                    };
+                    var subsubresult = NMHook.sendMessageResult(updateelement, true, PluginConfig.protocol_timeout);
+                    if (subsubresult == null) throw new Exception("Failed setting html element value");
+                    //System.Threading.Thread.Sleep(500);
+                    if (PluginConfig.wait_for_tab_after_set_value)
+                    {
+                        NMHook.WaitForTab(updateelement.tabid, updateelement.browser, PluginConfig.protocol_timeout);
+                    }
+                    return;
+                }
+            }
+        }
+        public string innerHTML
+        {
+            get
+            {
+                string result = null;
+                if (!Attributes.ContainsKey("innerhtml"))
+                {
+                    var getelement2 = new NativeMessagingMessage("getelement", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
+                    {
+                        browser = message.browser,
+                        zn_id = zn_id,
+                        tabid = message.tabid,
+                        frameId = message.frameId, 
+                        data = "innerhtml"
+                    };
+                    NativeMessagingMessage subsubresult = NMHook.sendMessageResult(getelement2, true, PluginConfig.protocol_timeout);
+                    if (subsubresult == null) throw new Exception("Failed clicking html element");
+                    parseChromeString(subsubresult.result.ToString());
+                    if (Attributes.ContainsKey("innerhtml"))
+                    {
+                        result = Attributes["innerhtml"].ToString();
+                        return result;
+                    }
+
+                }
+                if (Attributes.ContainsKey("innerhtml") && string.IsNullOrEmpty(result)) result = Attributes["innerhtml"].ToString();
+                if (Attributes.ContainsKey("value")) result = Attributes["value"].ToString();
+                if (Attributes.ContainsKey("innertext") && string.IsNullOrEmpty(result)) result = Attributes["innertext"].ToString();
+                if (string.IsNullOrEmpty(result)) result = Text;
+                return result;
+            }
+            set
+            {
+                if (NMHook.connected)
+                {
+                    var tab = NMHook.FindTabById(browser, message.tabid);
+                    if (tab == null) throw new ElementNotFoundException("Unknown tabid " + message.tabid);
+                    // NMHook.HighlightTab(tab);
+
+                    var updateelement = new NativeMessagingMessage("updateelementvalue", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
+                    {
+                        browser = message.browser,
+                        //cssPath = cssselector,
+                        //xPath = xpath,
+                        //tabid = message.tabid,
+                        //frameId = message.frameId,
+                        //data = value
+                        zn_id = zn_id,
+                        tabid = message.tabid,
+                        frameId = message.frameId,
+                        data = Interfaces.Extensions.Base64Encode(value), result = "innerhtml"
+                    };
+                    var temp = Interfaces.Extensions.Base64Decode(updateelement.data);
+                    if (value == null) updateelement.data = null;
+                    var subsubresult = NMHook.sendMessageResult(updateelement, true, PluginConfig.protocol_timeout);
+                    if (subsubresult == null) throw new Exception("Failed setting html element value");
+                    //System.Threading.Thread.Sleep(500);
+                    if (PluginConfig.wait_for_tab_after_set_value)
+                    {
+                        NMHook.WaitForTab(updateelement.tabid, updateelement.browser, TimeSpan.FromSeconds(5));
+                    }
+                    return;
                 }
             }
         }
@@ -215,8 +435,8 @@ namespace OpenRPA.NM
             get
             {
                 string result = null;
-                if (chromeelement.ContainsKey("value")) result = chromeelement["value"].ToString();
-                if (chromeelement.ContainsKey("innertext") && string.IsNullOrEmpty(result)) result = chromeelement["innertext"].ToString();
+                if (Attributes.ContainsKey("value")) result = Attributes["value"].ToString();
+                if (Attributes.ContainsKey("innertext") && string.IsNullOrEmpty(result)) result = Attributes["innertext"].ToString();
                 if (string.IsNullOrEmpty(result)) result = Text;
                 return result;
             }
@@ -224,22 +444,28 @@ namespace OpenRPA.NM
             {
                 if (NMHook.connected)
                 {
-                    var tab = NMHook.tabs.Where(x => x.id == message.tabid).FirstOrDefault();
+                    var tab = NMHook.FindTabById(browser, message.tabid);
                     if (tab == null) throw new ElementNotFoundException("Unknown tabid " + message.tabid);
                     // NMHook.HighlightTab(tab);
 
-                    var updateelement = new NativeMessagingMessage("updateelementvalue", PluginConfig.debug_console_output)
+                    var updateelement = new NativeMessagingMessage("updateelementvalue", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
                     {
                         browser = message.browser,
-                        cssPath = cssselector,
-                        xPath = xpath,
+                        //cssPath = cssselector,
+                        //xPath = xpath,
+                        //tabid = message.tabid,
+                        //frameId = message.frameId,
+                        //data = value
+                        zn_id = zn_id,
                         tabid = message.tabid,
                         frameId = message.frameId,
-                        data = value
+                        data = Interfaces.Extensions.Base64Encode(value),
+                        result = "value"
                     };
-                    var subsubresult = NMHook.sendMessageResult(updateelement, true, TimeSpan.FromSeconds(3));
+                    var temp = Interfaces.Extensions.Base64Decode(updateelement.data);
+                    if (value == null) updateelement.data = null;
+                    var subsubresult = NMHook.sendMessageResult(updateelement, true, PluginConfig.protocol_timeout);
                     if (subsubresult == null) throw new Exception("Failed setting html element value");
-                    //System.Threading.Thread.Sleep(500);
                     if (PluginConfig.wait_for_tab_after_set_value)
                     {
                         NMHook.WaitForTab(updateelement.tabid, updateelement.browser, TimeSpan.FromSeconds(5));
@@ -251,6 +477,7 @@ namespace OpenRPA.NM
         public void Click(bool VirtualClick, Input.MouseButton Button, int OffsetX, int OffsetY, bool DoubleClick, bool AnimateMouse)
         {
             if (Button != Input.MouseButton.Left) { VirtualClick = false; }
+            if(type== "file") { VirtualClick = false; }
             if (!VirtualClick)
             {
                 if (AnimateMouse)
@@ -261,17 +488,18 @@ namespace OpenRPA.NM
                 {
                     NativeMethods.SetCursorPos(Rectangle.X + OffsetX, Rectangle.Y + OffsetY);
                 }
+                Log.Debug("Click at  " + OffsetX + "," + OffsetY + " in area " + Rectangle.ToString());
                 Input.InputDriver.Click(Button);
                 if (DoubleClick) Input.InputDriver.Click(Button);
                 return;
             }
             bool virtualClick = true;
-            NMHook.checkForPipes(true, true);
+            NMHook.checkForPipes(true, true, true);
             if (NMHook.connected)
             {
                 if (virtualClick)
                 {
-                    var getelement2 = new NativeMessagingMessage("clickelement", PluginConfig.debug_console_output)
+                    var getelement2 = new NativeMessagingMessage("clickelement", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
                     {
                         browser = message.browser,
                         //cssPath = cssselector,
@@ -280,7 +508,7 @@ namespace OpenRPA.NM
                         tabid = message.tabid,
                         frameId = message.frameId
                     };
-                    NativeMessagingMessage subsubresult = NMHook.sendMessageResult(getelement2, true, TimeSpan.FromSeconds(2));
+                    NativeMessagingMessage subsubresult = NMHook.sendMessageResult(getelement2, true, PluginConfig.protocol_timeout);
                     if (subsubresult == null) throw new Exception("Failed clicking html element");
                     //System.Threading.Thread.Sleep(500);
                     if (PluginConfig.wait_for_tab_click)
@@ -290,7 +518,7 @@ namespace OpenRPA.NM
                     return;
                 }
                 NativeMessagingMessage subresult = null;
-                var getelement = new NativeMessagingMessage("getelement", PluginConfig.debug_console_output)
+                var getelement = new NativeMessagingMessage("getelement", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
                 {
                     browser = message.browser,
                     zn_id = zn_id,
@@ -299,7 +527,7 @@ namespace OpenRPA.NM
                     tabid = message.tabid,
                     frameId = message.frameId
                 };
-                if (NMHook.connected) subresult = NMHook.sendMessageResult(getelement, true, TimeSpan.FromSeconds(2));
+                if (NMHook.connected) subresult = NMHook.sendMessageResult(getelement, true, PluginConfig.protocol_timeout);
                 if (subresult == null) throw new Exception("Failed clicking html element, element not found");
                 int hitx = subresult.uix;
                 int hity = subresult.uiy;
@@ -330,11 +558,36 @@ namespace OpenRPA.NM
 
             }
         }
+        public void ClickAndWait()
+        {
+            NMHook.checkForPipes(true, true, true);
+            if (NMHook.connected)
+            {
+                var tab = NMHook.GetCurrentTab(browser);
+                var getelement2 = new NativeMessagingMessage("clickelement", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
+                {
+                    browser = message.browser,
+                    //cssPath = cssselector,
+                    //xPath = xpath,
+                    zn_id = zn_id,
+                    tabid = message.tabid,
+                    frameId = message.frameId
+                };
+                NativeMessagingMessage subsubresult = NMHook.sendMessageResult(getelement2, true, PluginConfig.protocol_timeout);
+                if (subsubresult == null) throw new Exception("Failed clicking html element");
+                if (PluginConfig.wait_for_tab_click)
+                {
+                    NMHook.WaitForTab(subsubresult.tabid, subsubresult.browser, TimeSpan.FromSeconds(5), tab.lastready);
+                }
+
+            }
+        }
+        private bool hasRefreshed = false;
         public bool Refresh()
         {
             try
             {
-                var getelement = new NativeMessagingMessage("getelement", PluginConfig.debug_console_output)
+                var getelement = new NativeMessagingMessage("getelement", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
                 {
                     browser = browser,
                     cssPath = cssselector,
@@ -345,8 +598,13 @@ namespace OpenRPA.NM
                 };
                 NativeMessagingMessage message = null;
                 // getelement.data = "getdom";
-                if (NMHook.connected) message = NMHook.sendMessageResult(getelement, true, TimeSpan.FromSeconds(2));
+                if (NMHook.connected) message = NMHook.sendMessageResult(getelement, true, PluginConfig.protocol_timeout);
                 if (message == null)
+                {
+                    Log.Error("Failed getting html element");
+                    return false;
+                }
+                if (message.result == null)
                 {
                     Log.Error("Failed getting html element");
                     return false;
@@ -361,6 +619,7 @@ namespace OpenRPA.NM
                 Y = message.uiy;
                 Width = message.uiwidth;
                 Height = message.uiheight;
+                hasRefreshed = true;
                 return true;
             }
             catch (Exception ex)
@@ -371,6 +630,27 @@ namespace OpenRPA.NM
         }
         public void Focus()
         {
+            var tab = NMHook.FindTabById(browser, message.tabid);
+            if (tab == null) throw new ElementNotFoundException("Unknown tabid " + message.tabid);
+            var updateelement = new NativeMessagingMessage("focuselement", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
+            {
+                browser = message.browser,
+                //cssPath = cssselector,
+                //xPath = xpath,
+                //tabid = message.tabid,
+                //frameId = message.frameId,
+                //data = value
+                zn_id = zn_id,
+                tabid = message.tabid,
+                frameId = message.frameId
+            };
+            var subsubresult = NMHook.sendMessageResult(updateelement, true, PluginConfig.protocol_timeout);
+            if (subsubresult == null) throw new Exception("Failed setting html element value");
+            //System.Threading.Thread.Sleep(500);
+            if (PluginConfig.wait_for_tab_after_set_value)
+            {
+                NMHook.WaitForTab(updateelement.tabid, updateelement.browser, TimeSpan.FromSeconds(5));
+            }
         }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "IDE1006")]
         public Task _Highlight(System.Drawing.Color Color, TimeSpan Duration)
@@ -381,6 +661,7 @@ namespace OpenRPA.NM
                 _overlayWindow.Visible = true;
                 _overlayWindow.SetTimeout(Duration);
                 _overlayWindow.Bounds = Rectangle;
+                Log.Debug("Highlight area " + Rectangle.ToString());
                 var sw = new System.Diagnostics.Stopwatch();
                 sw.Start();
                 do
@@ -427,9 +708,9 @@ namespace OpenRPA.NM
         {
             get
             {
-                if (chromeelement != null)
+                if (Attributes != null)
                 {
-                    if (chromeelement.ContainsKey("href")) return chromeelement["href"].ToString();
+                    if (Attributes.ContainsKey("href")) return Attributes["href"].ToString();
                     return null;
                 }
                 return null;
@@ -440,9 +721,9 @@ namespace OpenRPA.NM
         {
             get
             {
-                if (chromeelement != null)
+                if (Attributes != null)
                 {
-                    if (chromeelement.ContainsKey("src")) return chromeelement["src"].ToString();
+                    if (Attributes.ContainsKey("src")) return Attributes["src"].ToString();
                     return null;
                 }
                 return null;
@@ -453,9 +734,9 @@ namespace OpenRPA.NM
         {
             get
             {
-                if (chromeelement != null)
+                if (Attributes != null)
                 {
-                    if (chromeelement.ContainsKey("alt")) return (string)chromeelement["alt"];
+                    if (Attributes.ContainsKey("alt")) return (string)Attributes["alt"];
                     return null;
                 }
                 return null;
@@ -478,19 +759,83 @@ namespace OpenRPA.NM
                 return result.ToArray();
             }
         }
+        public bool WaitForVanish(TimeSpan Timeout, bool IsVisible = true, bool isVisibleOnScreen = false)
+        {
+            var sw = new System.Diagnostics.Stopwatch();
+            sw.Start();
+            do
+            {
+                System.Threading.Thread.Sleep(100);
+                if (!Refresh()) return true;
+                if(IsVisible && !this.IsVisible) return true;
+                if(isVisibleOnScreen && !this.isVisibleOnScreen) return true;
+            } while (sw.Elapsed < Timeout);
+            return false;
+        }
         public override bool Equals(object obj)
         {
-            if (obj is NMElement nm)
-            {
-                var eq = new Activities.NMEqualityComparer();
-                return eq.Equals(this, nm);
-            }
-            return base.Equals(obj);
+            //if (obj is NMElement nm)
+            //{
+            //    var eq = new Activities.NMEqualityComparer();
+            //    return eq.Equals(this, nm);
+            //}
+            //return base.Equals(obj);
+            return hashCode == obj.GetHashCode();
         }
+        private int hashCode = 0;
         public override int GetHashCode()
         {
-            int hCode = Height ^ X ^ Y ^ Width;
-            return hCode.GetHashCode();
+            if (hashCode > 0) return hashCode;
+            int hCode = 0;
+
+            if (!string.IsNullOrEmpty(xpath)) hCode += xpath.GetHashCode();
+            if (!string.IsNullOrEmpty(id)) hCode += id.GetHashCode();
+            if (!string.IsNullOrEmpty(cssselector)) hCode += cssselector.GetHashCode();
+            if (!string.IsNullOrEmpty(classname)) hCode += classname.GetHashCode();
+            if (!string.IsNullOrEmpty(Text)) hCode += Text.GetHashCode();
+            if (zn_id > 0) hCode += Convert.ToInt32(zn_id);
+            hashCode = hCode.GetHashCode();
+            return hashCode;
         }
+        public bool IsChecked
+        {
+            get
+            {
+                if (Attributes.ContainsKey("checked"))
+                {
+                    if (Attributes["checked"].ToString() == "true") return true;
+                    if (Attributes["checked"].ToString() == "True") return true;
+                }
+                return false;
+            }
+            set
+            {
+                if (NMHook.connected)
+                {
+                    var tab = NMHook.FindTabById(browser, message.tabid);
+                    if (tab == null) throw new ElementNotFoundException("Unknown tabid " + message.tabid);
+                    // NMHook.HighlightTab(tab);
+
+                    var updateelement = new NativeMessagingMessage("updateelementvalue", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
+                    {
+                        browser = message.browser,
+                        zn_id = zn_id,
+                        tabid = message.tabid,
+                        frameId = message.frameId,
+                        data = Interfaces.Extensions.Base64Encode(value.ToString()),
+                        result = "value"
+                    };
+                    var subsubresult = NMHook.sendMessageResult(updateelement, true, PluginConfig.protocol_timeout);
+                    if (subsubresult == null) throw new Exception("Failed setting html element value");
+                    //System.Threading.Thread.Sleep(500);
+                    if (PluginConfig.wait_for_tab_after_set_value)
+                    {
+                        NMHook.WaitForTab(updateelement.tabid, updateelement.browser, TimeSpan.FromSeconds(5));
+                    }
+                    return;
+                }
+            }
+        }
+
     }
 }

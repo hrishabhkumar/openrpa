@@ -54,6 +54,7 @@ namespace OpenRPA.NM
                 var selector = new NMSelector("[{Selector: 'NM'}]");
                 selectors = new Interfaces.Selector.SelectorWindow("NM", selector, anchor, maxresults);
             }
+            // selectors.Owner = GenericTools.MainWindow; -- Locks up and never returns ?
             if (selectors.ShowDialog() == true)
             {
                 ModelItem.Properties["Selector"].SetValue(new InArgument<string>() { Expression = new Literal<string>(selectors.vm.json) });
@@ -69,7 +70,14 @@ namespace OpenRPA.NM
                     {
                         Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<NMElement>("item")
                     });
-
+                    ModelItem.Properties["MinResults"].SetValue(new InArgument<int>()
+                    {
+                        Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<int>("0")
+                    });
+                    ModelItem.Properties["Timeout"].SetValue(new InArgument<TimeSpan>()
+                    {
+                        Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<TimeSpan>("TimeSpan.FromSeconds(0)")
+                    });
                 }
             }
         }

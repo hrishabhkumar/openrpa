@@ -79,15 +79,40 @@ namespace OpenRPA.FileWatcher
                 Entity.Properties["WatchFilter"] = value;
             }
         }
+        public bool IncludeSubdirectories
+        {
+            get
+            {
+                if (Entity == null) return false;
+                if (!Entity.Properties.ContainsKey("IncludeSubdirectories")) return false;
+                var _val = Entity.Properties["IncludeSubdirectories"];
+                if (_val == null) return false;
+                return bool.Parse(_val.ToString());
+            }
+            set
+            {
+                if (Entity == null) return;
+                Entity.Properties["IncludeSubdirectories"] = value;
+            }
+        }
         public void Start()
         {
             try
             {
                 watcher.Path = Watchpath;
                 watcher.NotifyFilter = NotifyFilters.LastWrite;
-                watcher.Filter = WatchFilter;
+                if(!string.IsNullOrEmpty(WatchFilter) && (WatchFilter.Contains(",") || WatchFilter.Contains("|")))
+                {
+                    watcher.Filter = "*";
+                } 
+                else
+                {
+                    watcher.Filter = WatchFilter;
+                }
+                
                 watcher.Changed += new FileSystemEventHandler(OnChanged);
                 watcher.EnableRaisingEvents = true;
+                watcher.IncludeSubdirectories = IncludeSubdirectories;
             }
             catch (Exception ex)
             {
@@ -103,6 +128,16 @@ namespace OpenRPA.FileWatcher
         {
             try
             {
+                if (!string.IsNullOrEmpty(WatchFilter) && (WatchFilter.Contains(",") || WatchFilter.Contains("|")))
+                {
+                    bool cont = false;
+                    var array = WatchFilter.Split(new Char[] { ',', '|' });
+                    foreach(var ext in array)
+                    {
+                        if (PatternMatcher.FitsMask(e.FullPath, ext)) cont = true;
+                    }
+                    if (!cont) return;
+                }
                 TimeSpan timepassed = DateTime.Now - lastTriggered;
                 if (timepassed.Milliseconds < 100) return;
                 lastTriggered = DateTime.Now;
@@ -124,12 +159,13 @@ namespace OpenRPA.FileWatcher
         public string host { get; set; }
         public string fqdn { get; set; }
         public string filepath { get; set; }
-        public TokenUser user { get; set; }
+        public string result { get; set; }
         public DetectorEvent(string FullPath)
         {
             host = Environment.MachineName.ToLower();
             fqdn = System.Net.Dns.GetHostEntry(Environment.MachineName).HostName.ToLower();
             filepath = FullPath;
+            result = FullPath;
         }
 
     }

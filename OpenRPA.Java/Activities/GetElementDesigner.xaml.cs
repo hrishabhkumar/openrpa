@@ -56,6 +56,7 @@ namespace OpenRPA.Java
                 var selector = new JavaSelector("[{Selector: 'Java'}]");
                 selectors = new Interfaces.Selector.SelectorWindow("Java", selector, anchor, maxresults);
             }
+            // selectors.Owner = GenericTools.MainWindow;  -- Locks up and never returns ?
             if (selectors.ShowDialog() == true)
             {
                 ModelItem.Properties["Selector"].SetValue(new InArgument<string>() { Expression = new Literal<string>(selectors.vm.json) });
@@ -71,7 +72,14 @@ namespace OpenRPA.Java
                     {
                         Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<JavaElement>("item")
                     });
-
+                    ModelItem.Properties["MinResults"].SetValue(new InArgument<int>()
+                    {
+                        Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<int>("0")
+                    });
+                    ModelItem.Properties["Timeout"].SetValue(new InArgument<TimeSpan>()
+                    {
+                        Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<TimeSpan>("TimeSpan.FromSeconds(0)")
+                    });
                 }
             }
         }
@@ -96,6 +104,7 @@ namespace OpenRPA.Java
             NotifyPropertyChanged("HighlightImage");
             string SelectorString = ModelItem.GetValue<string>("Selector");
             int maxresults = ModelItem.GetValue<int>("MaxResults");
+            if (maxresults < 1) maxresults = 1;
             var selector = new JavaSelector(SelectorString);
 
             var elements = new List<JavaElement>();

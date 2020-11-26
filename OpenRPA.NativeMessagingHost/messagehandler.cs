@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace OpenRPA.NativeMessagingHost
 {
-    public class messagehandler
+   public class messagehandler
     {
         public event Action<NativeMessagingMessage> onMessage;
         private System.Threading.AutoResetEvent autoReset = null;
@@ -53,25 +53,40 @@ namespace OpenRPA.NativeMessagingHost
 
                             //sstring msgStr = new string(input, "UTF-8");
 
-                            var msg = JsonConvert.DeserializeObject<NativeMessagingMessage>(input);
+                            var msg = JsonConvert.DeserializeObject<NativeMessagingMessage>(input, new JsonSerializerSettings
+                            {
+                                NullValueHandling = NullValueHandling.Ignore
+                            });
 
                             if (msg.functionName == "openrpautilscript")
                             {
-                                var r2 = new NativeMessagingMessage(msg.functionName, msg.debug);
+                                var r2 = new NativeMessagingMessage(msg.functionName, msg.debug, null);
                                 loadscript(ref r2, "openrpautil");
                                 sendMessage(r2);
                             }
                             if (msg.functionName == "contentscript")
                             {
-                            var r2 = new NativeMessagingMessage(msg.functionName, msg.debug);
+                            var r2 = new NativeMessagingMessage(msg.functionName, msg.debug, null);
                                 loadscript(ref r2, "content");
                                 sendMessage(r2);
                             }
 
                             if (msg.functionName == "backgroundscript")
                             {
-                                var r2 = new NativeMessagingMessage(msg.functionName, msg.debug);
+                                var r2 = new NativeMessagingMessage(msg.functionName, msg.debug, null);
                                 loadscript(ref r2, "background");
+                                sendMessage(r2);
+                            }
+                            if (msg.functionName == "jqueryscript")
+                            {
+                                var r2 = new NativeMessagingMessage(msg.functionName, msg.debug, null);
+                                loadscript(ref r2, "jquery");
+                                sendMessage(r2);
+                            }
+                            if (msg.functionName == "libsscript")
+                            {
+                                var r2 = new NativeMessagingMessage(msg.functionName, msg.debug, null);
+                                loadscript(ref r2, "libs");
                                 sendMessage(r2);
                             }
 #pragma warning disable 4014

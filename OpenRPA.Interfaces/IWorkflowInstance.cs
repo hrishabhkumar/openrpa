@@ -9,7 +9,7 @@ namespace OpenRPA.Interfaces
 {
     public interface IWorkflowInstance : INotifyPropertyChanged
     {
-        entity.apibase Workflow { get; set; }
+        IWorkflow Workflow { get; set; }
         Dictionary<string, object> Parameters { get; set; }
         Dictionary<string, object> Bookmarks { get; set; }
         string _id { get; set; }
@@ -31,6 +31,7 @@ namespace OpenRPA.Interfaces
         Exception Exception { get; set; }
         System.Diagnostics.Stopwatch runWatch { get; set; }
         Dictionary<string, WorkflowInstanceValueType> Variables { get; set; }
+        void ResumeBookmark(string bookmarkName, object value);
         void Run();
     }
     public class WorkflowInstanceValueType

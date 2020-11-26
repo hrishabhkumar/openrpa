@@ -1,6 +1,8 @@
 console.log('openrpa extension begin');
 //var port;
 var openrpautil_script = '';
+var jquery_script = '';
+var libsscript_script = '';
 var portname = 'com.openrpa.msg';
 var lastwindowId = 1;
 var openrpadebug = false;
@@ -18,6 +20,7 @@ var isIE = /*@cc_on!@*/false || !!document.documentMode;
 // Edge 20+ (tested on Edge 38.14393.0.0)
 var isEdge = !isIE && !!window.StyleMedia;
 var isChromeEdge = navigator.appVersion.indexOf('Edge') > -1;
+if (!isChromeEdge) isChromeEdge = navigator.appVersion.indexOf('Edg') > -1;
 
 // Chrome 1+ (tested on Chrome 55.0.2883.87)
 // This does not work in an extension:
@@ -104,9 +107,36 @@ async function OnPortMessage(message) {
             }
             return;
         }
+        if (message.functionName === "jqueryscript") {
+            jquery_script = message.script;
+            var subtabsList = await tabsquery();
+            for (var l in subtabsList) {
+                try {
+                    if (!allowExecuteScript(subtabsList[l])) continue;
+                    if (jquery_script != null && jquery_script != "") await tabsexecuteScript(subtabsList[l].id, { code: jquery_script, allFrames: true });
+                } catch (e) {
+                    console.log(e);
+                }
+            }
+            return;
+        }
+        if (message.functionName === "libsscript") {
+            console.log(message.functionName);
+            console.log(message);
+            libsscript_script = message.script;
+            var subtabsList = await tabsquery();
+            for (var l in subtabsList) {
+                try {
+                    if (!allowExecuteScript(subtabsList[l])) continue;
+                    if (libsscript_script != null && libsscript_script != "") await tabsexecuteScript(subtabsList[l].id, { code: libsscript_script, allFrames: true });
+                } catch (e) {
+                    console.log(e);
+                }
+            }
+            return;
+        }
         if (message.functionName === "openrpautilscript") {
             openrpautil_script = message.script;
-
             var subtabsList = await tabsquery();
             for (var l in subtabsList) {
                 try {
@@ -129,7 +159,87 @@ async function OnPortMessage(message) {
         }
         if (message.functionName === "enumtabs") {
             await EnumTabs(message);
-            console.log("[send][" + message.messageid + "]" + message.functionName + " results: " + message.results.length);
+            var _result = "";
+            for (var i = 0; i < message.results.length; i++) {
+                var _tab = message.results[i].tab;
+                _result += "(tabid " + _tab.id + "/index:" + _tab.index + ") ";
+            }
+            console.log("[send][" + message.messageid + "]" + message.functionName + " results: " + message.results.length + " " + _result);
+            port.postMessage(JSON.parse(JSON.stringify(message)));
+            return;
+        }
+        if (message.functionName === "selecttab") {
+            var tab = null;
+            var tabsList = await tabsquery();
+            if (tabsList.length == 0) {
+                message.error = "No tabs found!";
+                port.postMessage(JSON.parse(JSON.stringify(message)));
+                return;
+            }
+            for (var i = 0; i < tabsList.length; i++) {
+                if (tabsList[i].id == message.tabid) {
+                    tab = tabsList[i];
+                }
+            }
+            if (tab == null) {
+                message.error = "Tab " + message.tabid + " not found!";
+                port.postMessage(JSON.parse(JSON.stringify(message)));
+                return;
+            }
+            await tabshighlight(tab.index);
+            message.tab = tab;
+            // message.tab = await tabsupdate(message.tabid, { highlighted: true });
+            console.log("[send][" + message.messageid + "]" + message.functionName + " " + message.tab.url);
+            port.postMessage(JSON.parse(JSON.stringify(message)));
+            return;
+        }
+        if (message.functionName === "updatetab") {
+            var tabsList = await tabsquery();
+            if (tabsList.length == 0) {
+                message.error = "No tabs found!";
+                port.postMessage(JSON.parse(JSON.stringify(message)));
+                return;
+            }
+            for (var i = 0; i < tabsList.length; i++) {
+                if (tabsList[i].id == message.tabid) {
+                    if (tabsList[i].url == message.tab.url) {
+                        delete message.tab.url;
+                    }
+                }
+            }
+
+            delete message.tab.browser;
+            delete message.tab.audible;
+            delete message.tab.discarded;
+            delete message.tab.favIconUrl;
+            delete message.tab.height;
+            delete message.tab.id;
+            delete message.tab.incognito;
+            delete message.tab.status;
+            delete message.tab.title;
+            delete message.tab.width;
+            delete message.tab.index;
+            delete message.tab.windowId;
+            message.tab = await tabsupdate(message.tabid, message.tab);
+            console.log("[send][" + message.messageid + "]" + message.functionName + " " + message.tab.url);
+            port.postMessage(JSON.parse(JSON.stringify(message)));
+            return;
+        }
+        if (message.functionName === "closetab") {
+            chrome.tabs.remove(message.tabid);
+            port.postMessage(JSON.parse(JSON.stringify(message)));
+            return;
+        }
+        if (message.functionName === "executescript") {
+            console.log(message);
+            // var script = "(" + message.script + ")()";
+            var script = "function doexecutescript() { " + message.script + " }; doexecutescript();";
+            if (message.frameId > -1) {
+                message.result = await tabsexecuteScript(message.tabid, { code: script, frameId: message.frameId });
+            } else {
+                message.result = await tabsexecuteScript(message.tabid, { code: script, allFrames: true });
+            }
+            console.log(message.result);
             port.postMessage(JSON.parse(JSON.stringify(message)));
             return;
         }
@@ -329,15 +439,15 @@ function tabsOnRemoved(tabId) {
     port.postMessage(JSON.parse(JSON.stringify(message)));
 }
 async function tabsOnUpdated(tabId, changeInfo, tab) {
-    console.log('tabsOnUpdated');
     if (!allowExecuteScript(tab)) {
-        console.log('tabsOnUpdated, skipped, not allowExecuteScript');
+        console.debug('tabsOnUpdated, skipped, not allowExecuteScript');
         return;
     }
     if (openrpadebug) console.log(changeInfo);
     try {
-        console.log("tabsOnUpdated: " + changeInfo.status)
-        await tabsexecuteScript(tab.id, { code: openrpautil_script, allFrames: true });
+        console.debug("tabsOnUpdated: " + changeInfo.status);
+        var bundle = jquery_script + libsscript_script + openrpautil_script;
+        await tabsexecuteScript(tab.id, { code: bundle, allFrames: true });
     } catch (e) {
         console.log(e);
         console.log(tab);
@@ -361,15 +471,19 @@ function tabsOnActivated(activeInfo) {
 //window.addEventListener("load", OnPageLoad, false);
 
 var allowExecuteScript = function (tab){
-    if (port == null) return;
+    if (port == null) return false;
     if (isFirefox) {
-        if (tab.url.startsWith("about:")) return;
-        if (tab.url.startsWith("https://support.mozilla.org")) return;
+        if (tab.url.startsWith("about:")) return false;
+        if (tab.url.startsWith("https://support.mozilla.org")) return false;
     }
     // ff uses chrome:// when debugging ?
-    if (tab.url.startsWith("chrome://")) return;
+    if (tab.url.startsWith("chrome://")) return false;
     if (isChrome) {
-        if (tab.url.startsWith("https://chrome.google.com")) return;
+        if (tab.url.startsWith("https://chrome.google.com")) return false;
+    }
+    if (tab.url.startsWith("https://docs.google.com/spreadsheets/d")) {
+        console.log("skip google docs");
+        return false;
     }
     return true;
 }
@@ -407,7 +521,7 @@ var windowsgetAll = function () {
 var tabsexecuteScript = function (tabid, options) {
     return new Promise(function (resolve, reject) {
         try {
-            chrome.tabs.executeScript(tabid, options, function (results) {
+            chrome.tabs.executeScript(tabid, options, function (results, e) {
                 if (chrome.runtime.lastError) {
                     reject(chrome.runtime.lastError.message);
                     return;
@@ -452,6 +566,22 @@ var tabsupdate = function (tabid, updateoptions) {
         }
     });
 };
+var tabshighlight = function (index) {
+    return new Promise(function (resolve, reject) {
+        try {
+            chrome.tabs.highlight({ 'tabs': index }, () => {
+                if (chrome.runtime.lastError) {
+                    reject(chrome.runtime.lastError.message);
+                    return;
+                }
+                resolve();
+            });
+        } catch (e) {
+            reject(e);
+        }
+    });
+};
+
 var tabssendMessage = function (tabid, message) {
     return new Promise(async function (resolve, reject) {
         try {
@@ -588,17 +718,13 @@ chrome.tabs.onCreated.addListener(tabsOnCreated);
 chrome.tabs.onRemoved.addListener(tabsOnRemoved);
 chrome.tabs.onUpdated.addListener(tabsOnUpdated);
 chrome.tabs.onActivated.addListener(tabsOnActivated);
-chrome.extension.onRequest.addListener(function (response) {
-    if (response.type === "urlUpdate") {
-        document.getElementById("addressBar").value = response.url;
-    }
-});
-
+chrome.downloads.onChanged.addListener(downloadsOnChanged);
 chrome.runtime.onMessage.addListener((msg, sender, fnResponse) => {
     if (msg === "loadscript") {
         if (openrpautil_script !== null && openrpautil_script !== undefined && openrpautil_script !== '') {
             console.debug("send openrpautil to tab");
-            fnResponse(openrpautil_script);
+            var bundle = jquery_script + libsscript_script + openrpautil_script;
+            fnResponse(bundle);
         } else {
             console.warn("tab requested script, but openrpautil has not been loaded");
             fnResponse(null);
@@ -653,6 +779,26 @@ if (openrpautil_script === null || openrpautil_script === undefined || openrpaut
         }
     }
 }
+if (jquery_script === null || jquery_script === undefined || jquery_script === '') {
+    if (port != null) {
+        var message = { functionName: "jqueryscript" };
+        try {
+            console.log("[send]" + message.functionName);
+            port.postMessage(JSON.parse(JSON.stringify(message)));
+        } catch (e) {
+            console.error(e);
+            port = null;
+        }
+        var message = { functionName: "libsscript" };
+        try {
+            console.log("[send]" + message.functionName);
+            port.postMessage(JSON.parse(JSON.stringify(message)));
+        } catch (e) {
+            console.error(e);
+            port = null;
+        }
+    }
+}
 setInterval(function () {
     try {
         if (port != null) {
@@ -669,3 +815,36 @@ setInterval(function () {
         console.error(e);
     }
 }, 1000);
+
+
+var downloadsSearch = function (id) {
+    return new Promise(function (resolve, reject) {
+        try {
+            chrome.downloads.search({ id: id }, function (data) {
+                if (data != null && data.length > 0) {
+                    return resolve(data[0]);
+                }
+                resolve(null);
+            });
+        } catch (e) {
+            reject(e);
+        }
+    });
+};
+async function downloadsOnChanged(delta) {
+    if (!delta.state ||
+        (delta.state.current != 'complete')) {
+        return;
+    }
+    const download = await downloadsSearch(delta.id);
+    console.log(download);
+
+    if (port == null) return;
+    var message = { functionName: "downloadcomplete", data: JSON.stringify(download) };
+    if (isChrome) message.browser = "chrome";
+    if (isFirefox) message.browser = "ff";
+    if (isChromeEdge) message.browser = "edge";
+    console.debug("[send]" + message.functionName);
+    port.postMessage(JSON.parse(JSON.stringify(message)));
+
+}

@@ -385,6 +385,24 @@ namespace OpenRPA.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Focus Element.
+        /// </summary>
+        public static string activity_focuselement {
+            get {
+                return ResourceManager.GetString("activity_focuselement", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Give element focus.
+        /// </summary>
+        public static string activity_focuselement_tooltip {
+            get {
+                return ResourceManager.GetString("activity_focuselement_tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Force.
         /// </summary>
         public static string activity_force {
@@ -588,6 +606,15 @@ namespace OpenRPA.Resources {
         public static string activity_keymodifiers_help {
             get {
                 return ResourceManager.GetString("activity_keymodifiers_help", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Map Variables.
+        /// </summary>
+        public static string activity_map_variables {
+            get {
+                return ResourceManager.GetString("activity_map_variables", resourceCulture);
             }
         }
         
@@ -1024,6 +1051,15 @@ namespace OpenRPA.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Author.
+        /// </summary>
+        public static string author {
+            get {
+                return ResourceManager.GetString("author", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Browser addons.
         /// </summary>
         public static string browseraddons {
@@ -1168,6 +1204,15 @@ namespace OpenRPA.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Disable local caching.
+        /// </summary>
+        public static string disable_local_caching {
+            get {
+                return ResourceManager.GetString("disable_local_caching", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Logging.
         /// </summary>
         public static string dock_logging {
@@ -1231,6 +1276,15 @@ namespace OpenRPA.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Edge.
+        /// </summary>
+        public static string edge {
+            get {
+                return ResourceManager.GetString("edge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Exit Application.
         /// </summary>
         public static string exitapplication {
@@ -1281,6 +1335,33 @@ namespace OpenRPA.Resources {
         public static string import {
             get {
                 return ResourceManager.GetString("import", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Include Prerelease.
+        /// </summary>
+        public static string include_prerelease {
+            get {
+                return ResourceManager.GetString("include_prerelease", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Install.
+        /// </summary>
+        public static string install {
+            get {
+                return ResourceManager.GetString("install", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Installed.
+        /// </summary>
+        public static string installed {
+            get {
+                return ResourceManager.GetString("installed", resourceCulture);
             }
         }
         
@@ -1443,6 +1524,15 @@ namespace OpenRPA.Resources {
         public static string open_name {
             get {
                 return ResourceManager.GetString("open_name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open Package Manager.
+        /// </summary>
+        public static string open_package_manager {
+            get {
+                return ResourceManager.GetString("open_package_manager", resourceCulture);
             }
         }
         
@@ -1785,6 +1875,24 @@ namespace OpenRPA.Resources {
         public static string uilanguage {
             get {
                 return ResourceManager.GetString("uilanguage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Uninstall.
+        /// </summary>
+        public static string uninstall {
+            get {
+                return ResourceManager.GetString("uninstall", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Update.
+        /// </summary>
+        public static string update {
+            get {
+                return ResourceManager.GetString("update", resourceCulture);
             }
         }
         

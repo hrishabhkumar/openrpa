@@ -8,8 +8,11 @@ using System.Threading.Tasks;
 
 namespace OpenRPA.RDService
 {
+    using FlaUI.UIA3.Patterns;
     using OpenRPA.Interfaces;
     using System.IO.Pipes;
+    using System.Threading;
+
     class Program
     {
         public const int StartupWaitSeconds = 0;
@@ -60,11 +63,20 @@ namespace OpenRPA.RDService
         private static string logpath = "";
         private static void log(string message)
         {
-            DateTime dt = DateTime.Now;
-            var _msg = string.Format(@"[{0:HH\:mm\:ss\.fff}] {1}", dt, message);
-            System.IO.File.AppendAllText(System.IO.Path.Combine(logpath, "log_rdservice.txt"), _msg + Environment.NewLine);
+            try
+            {
+                Console.WriteLine(message);
+                DateTime dt = DateTime.Now;
+                var _msg = string.Format(@"[{0:HH\:mm\:ss\.fff}] {1}", dt, message);
+                System.IO.File.AppendAllText(System.IO.Path.Combine(logpath, "log_rdservice.txt"), _msg + Environment.NewLine);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
         }
         private static string[] args;
+        private static Thread UIThread;
         static void Main(string[] args)
         {
             try
@@ -74,9 +86,28 @@ namespace OpenRPA.RDService
                 var filepath = asm.CodeBase.Replace("file:///", "");
                 logpath = System.IO.Path.GetDirectoryName(filepath);
 
+
+                //UIThread = new Thread(() =>
+                //{
+                //    System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+                //    {
+                //        AutomationHelper.syncContext = System.Threading.SynchronizationContext.Current;
+                //    }));
+
+                //    System.Windows.Threading.Dispatcher.Run();
+                //});
+
+                //UIThread.SetApartmentState(ApartmentState.STA);
+                //UIThread.Start();
+
+
+
+                Console.WriteLine("main 1");
                 log("GetParentProcessId");
+                Console.WriteLine("main 200");
                 var parentProcess = NativeMethods.GetParentProcessId();
                 log("Check parentProcess");
+                Console.WriteLine("main 5");
                 isService = (parentProcess.ProcessName.ToLower() == "services");
                 Console.WriteLine("****** isService: " + isService);
                 if (isService)
@@ -114,17 +145,24 @@ namespace OpenRPA.RDService
             if (autoReconnect)
             {
                 autoReconnect = false;
-                global.webSocketClient.OnOpen -= WebSocketClient_OnOpen;
-                global.webSocketClient.OnClose -= WebSocketClient_OnClose;
-                global.webSocketClient.OnQueueMessage -= WebSocketClient_OnQueueMessage;
-                global.webSocketClient = null;
+                try
+                {
+                    global.webSocketClient.OnOpen -= WebSocketClient_OnOpen;
+                    global.webSocketClient.OnClose -= WebSocketClient_OnClose;
+                    global.webSocketClient.OnQueueMessage -= WebSocketClient_OnQueueMessage;
+                    global.webSocketClient = null;
 
-                global.webSocketClient = new WebSocketClient(PluginConfig.wsurl);
-                global.webSocketClient.OnOpen += WebSocketClient_OnOpen;
-                global.webSocketClient.OnClose += WebSocketClient_OnClose;
-                global.webSocketClient.OnQueueMessage += WebSocketClient_OnQueueMessage;
-                await global.webSocketClient.Connect();
-                autoReconnect = true;
+                    global.webSocketClient = new WebSocketClient(PluginConfig.wsurl);
+                    global.webSocketClient.OnOpen += WebSocketClient_OnOpen;
+                    global.webSocketClient.OnClose += WebSocketClient_OnClose;
+                    global.webSocketClient.OnQueueMessage += WebSocketClient_OnQueueMessage;
+                    await global.webSocketClient.Connect();
+                    autoReconnect = true;
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex.ToString());
+                }
             }
         }
         public static byte[] Base64Decode(string base64EncodedData)
@@ -216,8 +254,8 @@ namespace OpenRPA.RDService
                         }
                         reloadTimer.Start();
                     };
-                    reloadTimer.Start();
                 }
+                reloadTimer.Start();
             }
             catch (Exception ex)
             {
@@ -261,19 +299,29 @@ namespace OpenRPA.RDService
                     {
                         if (c._modified != session.client._modified || c._version != session.client._version)
                         {
-                            Log.Information("Removing:1 session for " + session.client.windowsusername);
                             if (c.enabled)
                             {
+                                Log.Information("Removing:1 session for " + session.client.windowsusername);
                                 sessions.Remove(session);
                                 session.Dispose();
                                 session = null;
                                 Log.Information("Adding session for " + c.windowsusername);
                                 sessions.Add(new RobotUserSession(c));
-                            } else
+                            } 
+                            else
                             {
-                                if(session.rdp!=null || session.freerdp !=null)
+                                await session.SendSignout();
+                                if (session.rdp!=null || session.freerdp !=null)
                                 {
-                                    session.disconnectrdp();
+                                    Log.Information("disconnecting session for " + session.client.windowsusername);
+                                    try
+                                    {
+                                        session.disconnectrdp();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Log.Error(ex.ToString());
+                                    }
                                 }
                                 session.client = c;
                             }
@@ -283,14 +331,14 @@ namespace OpenRPA.RDService
                 foreach (var session in sessions.ToList())
                 {
                     var c = clients.Where(x => x.windowsusername == session.client.windowsusername).FirstOrDefault();
-                    if (c == null)
+                    if (c == null && session.client != null && !string.IsNullOrEmpty(session.client._id))
                     {
-                        if(session.connection == null)
-                        {
-                            Log.Information("Removing:2 session for " + session.client.windowsusername);
-                            sessions.Remove(session);
-                            session.Dispose();
-                        }
+                        Log.Information("Removing:2 session for " + session.client.windowsusername);
+                        sessions.Remove(session);
+                        session.Dispose();
+                        //if (session.connection == null)
+                        //{
+                        //}
                     }
                 }
                 if (sessioncount != sessions.Count())

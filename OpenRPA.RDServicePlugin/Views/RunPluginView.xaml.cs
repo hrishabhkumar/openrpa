@@ -36,6 +36,7 @@ namespace OpenRPA.RDServicePlugin.Views
             DataContext = this;
             this.plugin = plugin;
             lblWindowsusername.Text = NativeMethods.GetProcessUserName(System.Diagnostics.Process.GetCurrentProcess().Id);
+            lblWindowsLogin.Text = NativeMethods.GetProcessUserName(System.Diagnostics.Process.GetCurrentProcess().Id);
         }
         private void UserControl_Unloaded(object sender, RoutedEventArgs e)
         {
@@ -168,7 +169,11 @@ namespace OpenRPA.RDServicePlugin.Views
 
                 var servers = await global.webSocketClient.Query<RDService.unattendedserver>("openrpa", "{'_type':'unattendedserver', 'computername':'" + computername + "', 'computerfqdn':'" + computerfqdn + "'}");
                 server = servers.FirstOrDefault();
-
+                if(server == null)
+                {
+                    Log.Error("Server not found in OpenFlow, does current user have access to object " + computername + "?");
+                }
+                
                 var clients = await global.webSocketClient.Query<RDService.unattendedclient>("openrpa", "{'_type':'unattendedclient', 'computername':'" + computername + "', 'computerfqdn':'" + computerfqdn + "', 'windowsusername':'" + windowsusername.Replace(@"\", @"\\") + "'}");
                 AddcurrentuserButton.Content = "Add current user";
                 if (clients.Length == 1)
@@ -176,6 +181,7 @@ namespace OpenRPA.RDServicePlugin.Views
                     client = clients.First();
                     AddcurrentuserButton.Content = "Update current user";
                     chkautosignout.IsChecked = client.autosignout;
+                    lblWindowsLogin.Text = client.windowslogin;
                 }
                 txtreloadinterval.Text = RDService.PluginConfig.reloadinterval.ToString();
                 chkUseFreeRDP.IsChecked = RDService.PluginConfig.usefreerdp;
@@ -204,9 +210,8 @@ namespace OpenRPA.RDServicePlugin.Views
             }
             catch (Exception ex)
             {
-                MessageBox.Show("UserControl_Loaded: " + ex.Message);
+                Log.Information("UserControl_Loaded: " + ex.Message);
             }
-
         }
         private async void AddcurrentuserButtonClick(object sender, RoutedEventArgs e)
         {
@@ -221,6 +226,7 @@ namespace OpenRPA.RDServicePlugin.Views
                 if (client == null)
                 {
                     client = new RDService.unattendedclient() { computername = computername, computerfqdn = computerfqdn, windowsusername = windowsusername, name = computername + " " + windowsusername, openrpapath = path };
+                    client.windowslogin = lblWindowsLogin.Text;
                     client._acl = server._acl;
                     client = await global.webSocketClient.InsertOne("openrpa", 1, false, client);
                 }
@@ -231,12 +237,14 @@ namespace OpenRPA.RDServicePlugin.Views
                 client.windowsusername = windowsusername;
                 client.name = computername + " " + windowsusername;
                 client.openrpapath = path;
+                client.windowslogin = lblWindowsLogin.Text;
                 client = await global.webSocketClient.UpdateOne("openrpa", 1, false, client);
                 windowspassword.Clear();
                 plugin.ReloadConfig();
             }
             catch (Exception ex)
             {
+                Log.Error(ex.ToString());
                 MessageBox.Show("AddcurrentuserButtonClick: " + ex.Message);
             }
             finally
@@ -265,23 +273,44 @@ namespace OpenRPA.RDServicePlugin.Views
         }
         private void chkUseFreeRDP_IsEnabledChanged(object sender, RoutedEventArgs e)
         {
-            if (chkUseFreeRDP.IsChecked == null) return;
-            RDService.PluginConfig.usefreerdp = chkUseFreeRDP.IsChecked.Value;
-            RDService.PluginConfig.Save();
+            try
+            {
+                if (chkUseFreeRDP.IsChecked == null) return;
+                RDService.PluginConfig.usefreerdp = chkUseFreeRDP.IsChecked.Value;
+                RDService.PluginConfig.Save();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.ToString());
+            }
         }
         private void chkUseFreeRDP_Click(object sender, RoutedEventArgs e)
         {
-            if (chkUseFreeRDP.IsChecked == null) return;
-            RDService.PluginConfig.usefreerdp = chkUseFreeRDP.IsChecked.Value;
-            RDService.PluginConfig.Save();
+            try
+            {
+                if (chkUseFreeRDP.IsChecked == null) return;
+                RDService.PluginConfig.usefreerdp = chkUseFreeRDP.IsChecked.Value;
+                RDService.PluginConfig.Save();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.ToString());
+            }
         }
         private void txtreloadinterval_TextChanged(object sender, TextChangedEventArgs e)
         {
-            TimeSpan ts = TimeSpan.Zero;
-            if(TimeSpan.TryParse(txtreloadinterval.Text, out ts))
+            try
             {
-                RDService.PluginConfig.reloadinterval = ts;
-                RDService.PluginConfig.Save();
+                TimeSpan ts = TimeSpan.Zero;
+                if (TimeSpan.TryParse(txtreloadinterval.Text, out ts))
+                {
+                    RDService.PluginConfig.reloadinterval = ts;
+                    RDService.PluginConfig.Save();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.ToString());
             }
         }
         private async void chkautosignout_Checked(object sender, RoutedEventArgs e)

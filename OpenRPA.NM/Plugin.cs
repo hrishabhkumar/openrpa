@@ -48,7 +48,8 @@ namespace OpenRPA.NM
             var browser = "";
             if (NMHook.chromeconnected) browser = "chrome";
             if (NMHook.ffconnected) browser = "ff";
-            if(string.IsNullOrEmpty(browser)) return rootelements.ToArray();
+            if (NMHook.edgeconnected) browser = "edge";
+            if (string.IsNullOrEmpty(browser)) return rootelements.ToArray();
             //NMHook.enumtabs();
             //// var tab = NMHook.tabs.Where(x => x.highlighted == true && x.browser == "chrome").FirstOrDefault();
             //var tab = NMHook.tabs.Where(x => x.highlighted == true).FirstOrDefault();
@@ -59,11 +60,20 @@ namespace OpenRPA.NM
             //}
             //if (NMHook.tabs.Count == 0) { return rootelements.ToArray(); }
             //// getelement.data = "getdom";
-            var getelement = new NativeMessagingMessage("getelement", PluginConfig.debug_console_output)
+            var getelement = new NativeMessagingMessage("getelements", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids)
             {
                 browser = browser,
-                xPath = "/html"
+                xPath = "/html",
+                frameId = -1
             };
+            var tab = NMHook.GetCurrentTab(browser);
+            if (tab == null) NMHook.enumwindowandtabs();
+            if (tab!=null)
+            {
+                getelement.tabid = tab.id;
+                getelement.windowId = tab.windowId;
+            }
+
             if (anchor != null && anchor.Count > 1)
             {
                 var s = anchor[1];
@@ -74,7 +84,7 @@ namespace OpenRPA.NM
             NativeMessagingMessage result = null;
             try
             {
-                result = NMHook.sendMessageResult(getelement, true, TimeSpan.FromSeconds(3));
+                result = NMHook.sendMessageResult(getelement, true, PluginConfig.protocol_timeout);
             }
             catch (Exception)
             {
@@ -92,6 +102,7 @@ namespace OpenRPA.NM
                 {
                     if (res.result != null)
                     {
+                        if(res.tab == null) { res.tab = NMHook.FindTabById(res.browser, res.tabid); }
                         var html = new NMElement(res);
                         rootelements.Add(new NMTreeElement(null, true, html));
                         //var html = new HtmlElement(getelement.xPath, getelement.cssPath, res.tabid, res.frameId, res.result);
@@ -116,19 +127,26 @@ namespace OpenRPA.NM
             if (nmanchor != null)
             {
                 var element = GetElementsWithSelector(nmanchor);
+                if(string.IsNullOrEmpty(nmitem.NMElement.cssselector))
+                {
+                    nmitem.NMElement.Refresh();
+                }
                 return new NMSelector(nmitem.NMElement, nmanchor, true, (NMElement)element.FirstOrDefault());
 
             }
             return new NMSelector(nmitem.NMElement, nmanchor, true, null);
         }
+        public static IOpenRPAClient client { get; set; }
         public void Initialize(IOpenRPAClient client)
         {
+            Plugin.client = client;
             NMHook.registreChromeNativeMessagingHost(false);
             NMHook.registreffNativeMessagingHost(false);
-            NMHook.checkForPipes(true, true);
+            NMHook.checkForPipes(true, true, true );
             NMHook.onMessage += OnMessage;
             NMHook.Connected += OnConnected;
             NMHook.onDisconnected += OnDisconnected;
+            _ = PluginConfig.unique_xpath_ids;
             _ = PluginConfig.debug_console_output;
             _ = PluginConfig.wait_for_tab_after_set_value;
             _ = PluginConfig.wait_for_tab_click;
@@ -188,7 +206,7 @@ namespace OpenRPA.NM
                             Button = Input.MouseButton.Left
                         }; var a = new GetElement { DisplayName = LastElement.ToString() };
 
-                        message.tab = NMHook.tabs.Where(x => x.id == message.tabid && x.windowId == message.windowId).FirstOrDefault();
+                        message.tab = NMHook.FindTabById(message.browser, message.tabid);
 
                         var selector = new NMSelector(LastElement, null, true, null);
                         a.Selector = selector.ToString();
@@ -233,7 +251,7 @@ namespace OpenRPA.NM
                         string title = process.MainWindowTitle;
                         if(!string.IsNullOrEmpty(title))
                         {
-                            var exists = NMHook.tabs.Where(x => x.title == title).FirstOrDefault();
+                            // var exists = NMHook.tabs.Where(x => x.title == title).FirstOrDefault();
                             var automation = AutomationUtil.getAutomation();
                             var _ele = automation.FromHandle(process.MainWindowHandle);
                             return new UIElement(_ele);
@@ -255,12 +273,13 @@ namespace OpenRPA.NM
             string url = "";
             if (p != null) { url = p.Value; }
             NMHook.enumtabs();
-            var tabs = NMHook.tabs.Where(x => x.browser == browser && x.url == url).ToList();
-            if (string.IsNullOrEmpty(url)) tabs = NMHook.tabs.Where(x => x.browser == browser).ToList();
-            foreach (var tab in tabs)
-            {
-                NMHook.CloseTab(tab);
-            }
+            var tab = NMHook.FindTabByURL(browser, url);
+            if(tab != null) NMHook.CloseTab(tab);
+            // if (string.IsNullOrEmpty(url)) tabs = NMHook.tabs.Where(x => x.browser == browser).ToList();
+            //foreach (var tab in tabs)
+            //{
+            //    NMHook.CloseTab(tab);
+            //}
         }
         public bool Match(SelectorItem item, IElement m)
         {
@@ -273,11 +292,16 @@ namespace OpenRPA.NM
 
             if (e.UIElement.ProcessId < 1) return false;
             var p = System.Diagnostics.Process.GetProcessById(e.UIElement.ProcessId);
-            if (p.ProcessName.ToLower() != "chrome" && p.ProcessName.ToLower() != "firefox") return false;
+            if (p.ProcessName.ToLower() != "chrome" && p.ProcessName.ToLower() != "firefox" && p.ProcessName.ToLower() != "msedge") return false;
 
             if (p.ProcessName.ToLower() == "chrome" && !NMHook.chromeconnected)
             {
                 System.Windows.MessageBox.Show("You clicked inside Chrome, but it looks like you dont have the OpenRPA plugin installed");
+                return false;
+            }
+            if (p.ProcessName.ToLower() == "msedge" && !NMHook.edgeconnected)
+            {
+                System.Windows.MessageBox.Show("You clicked inside Edge, but it looks like you dont have the OpenRPA plugin installed");
                 return false;
             }
             if (p.ProcessName.ToLower() == "firefox" && !NMHook.ffconnected)
@@ -289,7 +313,11 @@ namespace OpenRPA.NM
             if(LastElement.message == null) return false;
             if (LastElement.message.tab == null)
             {
-                LastElement.message.tab = NMHook.tabs.Where(x => x.id == LastElement.message.tabid && x.browser == LastElement.message.browser && x.windowId == LastElement.message.windowId).FirstOrDefault();
+                LastElement.message.tab = NMHook.FindTabById(LastElement.message.browser, LastElement.message.tabid);
+            }
+            if (p.ProcessName.ToLower() == "chrome" || p.ProcessName.ToLower() == "msedge")
+            {
+                // if (e.UIElement.FrameworkId != "chrome" && e.UIElement.FrameworkId != "Chrome") return false;
             }
             var selector = new NMSelector(LastElement, null, true, null);
             var a = new GetElement { DisplayName = LastElement.id + " " + LastElement.type + " " + LastElement.Name };
@@ -301,7 +329,7 @@ namespace OpenRPA.NM
             e.Selector = selector;
             e.a = new GetElementResult(a);
             e.SupportInput = LastElement.SupportInput;
-            e.SupportSelect = false;
+            e.SupportSelect = LastElement.tagname.ToLower() == "select";
             e.OffsetX = e.X - LastElement.Rectangle.X;
             e.OffsetY = e.Y - LastElement.Rectangle.Y;
             e.ClickHandled = false;
@@ -325,6 +353,7 @@ namespace OpenRPA.NM
             if (e.UIElement.ProcessId < 1) return false;
             var p = System.Diagnostics.Process.GetProcessById(e.UIElement.ProcessId);
             if (p.ProcessName.ToLower() != "chrome" && p.ProcessName.ToLower() != "firefox") return false;
+            if(LastElement==null) return false;
             e.Element = LastElement;
             e.OffsetX = e.X - LastElement.Rectangle.X;
             e.OffsetY = e.Y - LastElement.Rectangle.Y;

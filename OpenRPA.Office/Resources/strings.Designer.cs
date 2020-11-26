@@ -133,6 +133,42 @@ namespace OpenRPA.Office.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Clear Range.
+        /// </summary>
+        public static string activity_clearrange {
+            get {
+                return ResourceManager.GetString("activity_clearrange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cells.
+        /// </summary>
+        public static string activity_clearrange_cells {
+            get {
+                return ResourceManager.GetString("activity_clearrange_cells", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Set what cells to clear, leave blank to clear all cells.
+        /// </summary>
+        public static string activity_clearrange_cells_help {
+            get {
+                return ResourceManager.GetString("activity_clearrange_cells_help", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Clears all data and formating from a range of cells.
+        /// </summary>
+        public static string activity_clearrange_tooltip {
+            get {
+                return ResourceManager.GetString("activity_clearrange_tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Close Document.
         /// </summary>
         public static string activity_closedocument {
@@ -277,11 +313,38 @@ namespace OpenRPA.Office.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reload.
+        /// </summary>
+        public static string activity_getemails_reload {
+            get {
+                return ResourceManager.GetString("activity_getemails_reload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Get Mails.
         /// </summary>
         public static string activity_getmails {
             get {
                 return ResourceManager.GetString("activity_getmails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Filter.
+        /// </summary>
+        public static string activity_getmails_filter {
+            get {
+                return ResourceManager.GetString("activity_getmails_filter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Filter emails by query.
+        /// </summary>
+        public static string activity_getmails_filter_hint {
+            get {
+                return ResourceManager.GetString("activity_getmails_filter_hint", resourceCulture);
             }
         }
         
@@ -403,6 +466,42 @@ namespace OpenRPA.Office.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Get Selected Range.
+        /// </summary>
+        public static string activity_getselectedrange {
+            get {
+                return ResourceManager.GetString("activity_getselectedrange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Get the currently selected cells in the specefied worksheet.
+        /// </summary>
+        public static string activity_getselectedrange_tooltip {
+            get {
+                return ResourceManager.GetString("activity_getselectedrange_tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Mail.
+        /// </summary>
+        public static string activity_movemail_mail {
+            get {
+                return ResourceManager.GetString("activity_movemail_mail", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Mail item to move.
+        /// </summary>
+        public static string activity_movemail_mail_hint {
+            get {
+                return ResourceManager.GetString("activity_movemail_mail_hint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Move MailItem.
         /// </summary>
         public static string activity_movemailitem {
@@ -435,6 +534,33 @@ namespace OpenRPA.Office.Resources {
         public static string activity_newmailitem_tooltip {
             get {
                 return ResourceManager.GetString("activity_newmailitem_tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Password.
+        /// </summary>
+        public static string activity_password {
+            get {
+                return ResourceManager.GetString("activity_password", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Protect Worksheet.
+        /// </summary>
+        public static string activity_protectworksheet {
+            get {
+                return ResourceManager.GetString("activity_protectworksheet", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Protect current worksheet from changes.
+        /// </summary>
+        public static string activity_protectworksheet_tooltip {
+            get {
+                return ResourceManager.GetString("activity_protectworksheet_tooltip", resourceCulture);
             }
         }
         
@@ -642,6 +768,24 @@ namespace OpenRPA.Office.Resources {
         public static string activity_setparagraph_tooltip {
             get {
                 return ResourceManager.GetString("activity_setparagraph_tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unprotect Worksheet.
+        /// </summary>
+        public static string activity_unprotectworksheet {
+            get {
+                return ResourceManager.GetString("activity_unprotectworksheet", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Remove the protection of current worksheet.
+        /// </summary>
+        public static string activity_unprotectworksheet_tooltip {
+            get {
+                return ResourceManager.GetString("activity_unprotectworksheet_tooltip", resourceCulture);
             }
         }
         

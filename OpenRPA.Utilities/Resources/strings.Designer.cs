@@ -70,6 +70,24 @@ namespace OpenRPA.Utilities.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Save zip file with this filename.
+        /// </summary>
+        public static string activity_compressarchive_filename_hint {
+            get {
+                return ResourceManager.GetString("activity_compressarchive_filename_hint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add all files from this folder.
+        /// </summary>
+        public static string activity_compressarchive_path_hint {
+            get {
+                return ResourceManager.GetString("activity_compressarchive_path_hint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Datatable.
         /// </summary>
         public static string activity_converter_datatable {
@@ -115,6 +133,15 @@ namespace OpenRPA.Utilities.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Row.
+        /// </summary>
+        public static string activity_deletedatarow_row {
+            get {
+                return ResourceManager.GetString("activity_deletedatarow_row", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Save into this folder.
         /// </summary>
         public static string activity_downloadfile_hint {
@@ -129,6 +156,24 @@ namespace OpenRPA.Utilities.Resources {
         public static string activity_drop_hint {
             get {
                 return ResourceManager.GetString("activity_drop_hint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Select ZIP file to expand.
+        /// </summary>
+        public static string activity_expandarchive_filename_hint {
+            get {
+                return ResourceManager.GetString("activity_expandarchive_filename_hint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Select destination folder.
+        /// </summary>
+        public static string activity_expandarchive_path_hint {
+            get {
+                return ResourceManager.GetString("activity_expandarchive_path_hint", resourceCulture);
             }
         }
         
@@ -156,6 +201,15 @@ namespace OpenRPA.Utilities.Resources {
         public static string activity_match_pattern {
             get {
                 return ResourceManager.GetString("activity_match_pattern", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Replace with this string.
+        /// </summary>
+        public static string activity_match_replacement {
+            get {
+                return ResourceManager.GetString("activity_match_replacement", resourceCulture);
             }
         }
         
@@ -192,6 +246,42 @@ namespace OpenRPA.Utilities.Resources {
         public static string activity_readpdf_hint {
             get {
                 return ResourceManager.GetString("activity_readpdf_hint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Selected File.
+        /// </summary>
+        public static string activity_selectfile_hint {
+            get {
+                return ResourceManager.GetString("activity_selectfile_hint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Selected Folder.
+        /// </summary>
+        public static string activity_selectfolder_hint {
+            get {
+                return ResourceManager.GetString("activity_selectfolder_hint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Arguments to be parsed the the executable.
+        /// </summary>
+        public static string activity_startprocess_arguments_hint {
+            get {
+                return ResourceManager.GetString("activity_startprocess_arguments_hint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The full filename and path to the executable to start.
+        /// </summary>
+        public static string activity_startprocess_filename_hint {
+            get {
+                return ResourceManager.GetString("activity_startprocess_filename_hint", resourceCulture);
             }
         }
         

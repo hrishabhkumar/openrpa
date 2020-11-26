@@ -36,8 +36,9 @@ namespace OpenRPA.IE
         private static Browser browser;
         private static DateTime browser_at;
         private static TimeSpan browser_for = TimeSpan.FromSeconds(5);
-        public static Browser GetBrowser(string url = null)
+        public static Browser GetBrowser(bool forcenew, string url = null)
         {
+            if (!PluginConfig.enable_caching_browser) browser = null;
             var sw = new Stopwatch(); sw.Start();
             if (browser != null)
             {
@@ -63,7 +64,6 @@ namespace OpenRPA.IE
                 }                
             }
             var result = new Browser();
-            result.findBrowser();
             SHDocVw.ShellWindows shellWindows = new SHDocVw.ShellWindows();
             SHDocVw.InternetExplorer ie = null;
             if (result.wBrowser == null && !string.IsNullOrEmpty(url))
@@ -108,22 +108,10 @@ namespace OpenRPA.IE
             NativeMethods.SetForegroundWindow(new IntPtr(wBrowser.HWND));
             
         }
-        private Browser() { }
-        public Browser(AutomationElement Element)
-        {
-            var HWNDs = new Dictionary<Int32, AutomationElement>();
-            var ele = Element;
-            while (ele != null)
-            {
-                if (ele.Properties.NativeWindowHandle.IsSupported)
-                {
-                    var HWND = ele.Properties.NativeWindowHandle.Value.ToInt32();
-                    HWNDs.Add(HWND, ele);
-                }
-                ele = ele.Parent;
-            }
+        internal Browser() {
             findBrowser();
-            if (wBrowser.Document == null) throw new Exception("Failed initializing Internet Eexplorer");
+            if (wBrowser == null || wBrowser.Document == null) return;
+            // if (wBrowser.Document == null) throw new Exception("Failed initializing Internet Eexplorer");
             Document = wBrowser.Document as MSHTML.HTMLDocument;
             title = Document.title;
         }
@@ -160,10 +148,25 @@ namespace OpenRPA.IE
             using (var automation = Interfaces.AutomationUtil.getAutomation())
             {
                 var _ele = automation.FromHandle(new IntPtr(wBrowser.HWND));
-
                 panel = _ele.FindFirst(TreeScope.Descendants,
                     new AndCondition(new PropertyCondition(automation.PropertyLibrary.Element.ControlType, ControlType.Pane),
                     new PropertyCondition(automation.PropertyLibrary.Element.ClassName, "TabWindowClass"))); // Frame Tab
+                if(panel==null)
+                {
+                    var win = _ele.AsWindow();
+                    GenericTools.Restore(new IntPtr(wBrowser.HWND));
+                    win.SetForeground();
+
+                    var sw = new Stopwatch(); sw.Start();
+
+                    while (panel == null && sw.Elapsed < TimeSpan.FromSeconds(5))
+                    {
+                        panel = _ele.FindFirst(TreeScope.Descendants,
+                        new AndCondition(new PropertyCondition(automation.PropertyLibrary.Element.ControlType, ControlType.Pane),
+                        new PropertyCondition(automation.PropertyLibrary.Element.ClassName, "TabWindowClass"))); // Frame Tab
+                    }
+                }
+                if (panel == null) throw new Exception("Failed tab inside IE window " + wBrowser.HWND.ToString());
                 elementx = Convert.ToInt32(panel.BoundingRectangle.X);
                 elementy = Convert.ToInt32(panel.BoundingRectangle.Y);
             }

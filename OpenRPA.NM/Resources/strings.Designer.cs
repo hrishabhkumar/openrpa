@@ -61,11 +61,74 @@ namespace OpenRPA.NM.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Double-click to view.
+        /// </summary>
+        public static string activity_click_to_view {
+            get {
+                return ResourceManager.GetString("activity_click_to_view", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Close Tab.
+        /// </summary>
+        public static string activity_closetab {
+            get {
+                return ResourceManager.GetString("activity_closetab", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Close the current tab, or close all tabs.
+        /// </summary>
+        public static string activity_closetab_tooltip {
+            get {
+                return ResourceManager.GetString("activity_closetab_tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Execute Script.
+        /// </summary>
+        public static string activity_executescript {
+            get {
+                return ResourceManager.GetString("activity_executescript", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Execute script in the browser, targeting current tab and default frame.
+        /// </summary>
+        public static string activity_executescript_tooltip {
+            get {
+                return ResourceManager.GetString("activity_executescript_tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Get Element.
         /// </summary>
         public static string activity_getelement {
             get {
                 return ResourceManager.GetString("activity_getelement", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Get Element Async.
+        /// </summary>
+        public static string activity_getelement_async {
+            get {
+                return ResourceManager.GetString("activity_getelement_async", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Find an browser elements based on selector.
+        /// </summary>
+        public static string activity_getelement_async_tooltip {
+            get {
+                return ResourceManager.GetString("activity_getelement_async_tooltip", resourceCulture);
             }
         }
         
@@ -124,6 +187,15 @@ namespace OpenRPA.NM.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Open Editor.
+        /// </summary>
+        public static string activity_open_editor {
+            get {
+                return ResourceManager.GetString("activity_open_editor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Open URL.
         /// </summary>
         public static string activity_openurl {
@@ -147,6 +219,24 @@ namespace OpenRPA.NM.Resources {
         public static string activity_openurl_tooltip {
             get {
                 return ResourceManager.GetString("activity_openurl_tooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Wait For Download.
+        /// </summary>
+        public static string activity_waitfordownload {
+            get {
+                return ResourceManager.GetString("activity_waitfordownload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Waits for a download to complete in a nm supported browser.
+        /// </summary>
+        public static string activity_waitfordownload_tooltip {
+            get {
+                return ResourceManager.GetString("activity_waitfordownload_tooltip", resourceCulture);
             }
         }
         
@@ -237,6 +327,24 @@ namespace OpenRPA.NM.Resources {
         public static string register_old_portname_help {
             get {
                 return ResourceManager.GetString("register_old_portname_help", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to unique ids.
+        /// </summary>
+        public static string unique_xpath_ids {
+            get {
+                return ResourceManager.GetString("unique_xpath_ids", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use on of these attributes as unique id&apos;s when creating xpath selectors.
+        /// </summary>
+        public static string unique_xpath_ids_help {
+            get {
+                return ResourceManager.GetString("unique_xpath_ids_help", resourceCulture);
             }
         }
         

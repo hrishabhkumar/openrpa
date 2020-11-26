@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace OpenRPA.Interfaces.entity
 {
-    public class apibase : ObservableObject
+
+    public class apibase : ObservableObject, IBase
     {
         public string _id { get { return GetProperty<string>(); } set { SetProperty(value); } }
         public string _type { get { return GetProperty<string>(); } set { SetProperty(value); } }
@@ -22,6 +23,8 @@ namespace OpenRPA.Interfaces.entity
         public long _version { get { return GetProperty<long>(); } set { SetProperty(value); } }        
         public bool hasRight(apiuser user, ace_right bit)
         {
+            if (_acl == null) return true;
+            if (user == null) return true;
             var ace = _acl.Where(x => x._id == user._id).FirstOrDefault();
             if (ace != null) { if (ace.getBit((decimal)bit)) return true; }
             foreach (var role in user.roles)
@@ -34,6 +37,7 @@ namespace OpenRPA.Interfaces.entity
         public bool hasRight(TokenUser user, ace_right bit)
         {
             if (_acl == null) return true;
+            if (user == null) return true;
             var ace = _acl.Where(x => x._id == user._id).FirstOrDefault();
             if (ace != null) { if (ace.getBit((decimal)bit)) return true; }
             foreach (var role in user.roles)

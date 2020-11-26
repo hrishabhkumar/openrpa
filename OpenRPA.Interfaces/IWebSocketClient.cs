@@ -37,6 +37,11 @@ namespace OpenRPA.Interfaces
         string replyto { get; set; }
     }
     public delegate void QueueMessageDelegate(IQueueMessage message, QueueMessageEventArgs e);
+    public interface ICollection
+    {
+        string name { get; set; }
+        string type { get; set; }
+    }
     public interface IWebSocketClient
     {
         event Action OnOpen;
@@ -54,8 +59,8 @@ namespace OpenRPA.Interfaces
         Task<TokenUser> Signin(string jwt, string clientagent = "", string clientversion = "");
         Task<TokenUser> Signin(SecureString jwt, string clientagent = "", string clientversion = "");
         Task RegisterUser(string name, string username, string password);
-        Task RegisterQueue(string queuename);
-        Task<object> QueueMessage(string queuename, object data, string correlationId = null);
+        Task<string> RegisterQueue(string queuename);
+        Task<object> QueueMessage(string queuename, object data, string replyto, string correlationId);
         Task<string> CreateWorkflowInstance(string workflowid, string resultqueue, string targetid, object payload, bool initialrun, string correlationId = null, string parentid = null);
         Task<T[]> Query<T>(string collectionname, string query, string projection = null, int top = 100, int skip = 0, string orderby = null, string queryas = null);
         Task<T> InsertOrUpdateOne<T>(string collectionname, int w, bool j, string uniqeness, T item);
@@ -66,6 +71,7 @@ namespace OpenRPA.Interfaces
         Task<string> UploadFile(string filepath, string path, metadata metadata);
         Task DownloadFileAndSave(string filename, string id, string filepath, bool ignorepath);
         Task DownloadFileAndSaveAs(string filename, string id, string filepath, bool ignorepath);
+        Task<ICollection[]> ListCollections(bool includehist = false);
     }
     public class QueueMessageEventArgs : EventArgs
     {

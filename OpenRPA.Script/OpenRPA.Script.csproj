@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net462</TargetFramework>
     <Authors>Allan Zimmermann</Authors>
     <Product>OpenRPA</Product>
     <Description>A couple of activities to allow executing scripts and various different languages</Description>
@@ -8,8 +8,11 @@
     <PackageProjectUrl>https://github.com/open-rpa/openrpa</PackageProjectUrl>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <!--<NuspecFile>nuget.nuspec</NuspecFile>-->
-    <Version>1.0.27</Version>
-    <PackageReleaseNotes>1.0.27 massive improvements to python, add pipinstall activity
+    <Version>1.0.30</Version>
+    <PackageReleaseNotes>1.0.30 Expose instance as variable
+1.0.29 Add implementation variables to code designer
+1.0.28 Add support for better serialization of variables to and from python
+1.0.27 massive improvements to python, add pipinstall activity
 1.0.26 Add toggle between embedded and locally installed python, Add PipInstall activity
 1.0.25 Change target framework to 4.7.2
 1.0.24 Fix print in python
@@ -87,7 +90,7 @@
     <EmbeddedResource Include="Resources\toolbox\prompt.png" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="AvalonEdit" Version="6.0.0" />
+    <PackageReference Include="AvalonEdit" Version="6.0.1" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Features" Version="3.4.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.Scripting" Version="3.4.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Features" Version="3.4.0" />

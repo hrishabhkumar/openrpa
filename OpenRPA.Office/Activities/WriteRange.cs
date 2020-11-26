@@ -35,6 +35,8 @@ namespace OpenRPA.Office.Activities
             var useHeaderRow = (UseHeaderRow != null ? UseHeaderRow.Get(context) : false);
             base.Execute(context);
             var dt = DataTable.Get(context);
+            if (dt == null) throw new ArgumentException("DataTable is null", "DataTable");
+            if (dt.Rows.Count == 0) return;
             var cells = Cells.Get(context);
             Microsoft.Office.Interop.Excel.Range xlRange = null;
             if (string.IsNullOrEmpty(cells))
@@ -106,6 +108,12 @@ namespace OpenRPA.Office.Activities
             //        xlRange.Cells[i + idx, j + 1] = dt.Rows[i][j];
             //    }
             //}
+            var sheetPassword = SheetPassword.Get(context);
+            if (string.IsNullOrEmpty(sheetPassword)) sheetPassword = null;
+            if (!string.IsNullOrEmpty(sheetPassword) && worksheet != null)
+            {
+                worksheet.Protect(sheetPassword);
+            }
         }
         public new string DisplayName
         {

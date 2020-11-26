@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -23,6 +24,31 @@ namespace OpenRPA
         {
             if (SingleInstance<App>.InitializeAsFirstInstance("OpenRPA"))
             {
+                AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(CurrentDomain_UnhandledException);
+                // AppDomain.CurrentDomain.FirstChanceException += CurrentDomain_FirstChanceHandler;
+                try
+                {
+                    var args = Environment.GetCommandLineArgs();
+                    CommandLineParser parser = new CommandLineParser();
+                    // parser.Parse(string.Join(" ", args), true);
+                    var options = parser.Parse(args, true);
+                    if (options.ContainsKey("workingdir"))
+                    {
+                        var filepath = options["workingdir"].ToString();
+                        if(System.IO.Directory.Exists(filepath))
+                        {
+                            Log.ResetLogPath(filepath);
+                        } else
+                        {
+                            MessageBox.Show("Path not found " + filepath);
+                            Console.WriteLine("Path not found " + filepath);
+                            return;
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                }
                 var application = new App();
                 application.InitializeComponent();
                 application.Run();
@@ -30,6 +56,33 @@ namespace OpenRPA
                 SingleInstance<App>.Cleanup();
             }
         }
+        static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs args)
+        {
+            Log.Function("MainWindow", "CurrentDomain_UnhandledException");
+            try
+            {
+                Exception ex = (Exception)args.ExceptionObject;
+                Log.Error(ex, "");
+                Log.Error("MyHandler caught : " + ex.Message);
+                Log.Error("Runtime terminating: {0}", (args.IsTerminating).ToString());
+            }
+            catch (Exception)
+            {
+            }
+        }
+        //static void CurrentDomain_FirstChanceHandler(object source, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs e)
+        //{
+        //    try
+        //    {
+        //        Exception ex = e.Exception;
+        //        System.Diagnostics.Trace.WriteLine(ex.ToString());
+        //        Console.WriteLine(ex.ToString());
+        //        // Log.Verbose("FirstChance: " + ex.ToString());
+        //    }
+        //    catch (Exception)
+        //    {
+        //    }
+        //}
         public static System.Windows.Forms.NotifyIcon notifyIcon { get; set; }  = new System.Windows.Forms.NotifyIcon();
         public App()
         {
@@ -42,6 +95,23 @@ namespace OpenRPA
                     System.Globalization.CultureInfo.DefaultThreadCurrentCulture = cultur;
                     System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = cultur;
                     ProcessThreadCollection currentThreads = Process.GetCurrentProcess().Threads;
+                    foreach (object obj in currentThreads)
+                    {
+                        try
+                        {
+                            Thread t = obj as Thread;
+                            if (t != null)
+                            {
+                                t.CurrentUICulture = cultur;
+                                t.CurrentCulture = cultur;
+                            }
+                        }
+                        catch (Exception)
+                        {
+                        }
+                    }
+
+
                 }
                 catch (Exception)
                 {
@@ -71,6 +141,10 @@ namespace OpenRPA
                 //Perform dependency check to make sure all relevant resources are in our output directory.
                 var settings = new CefSharp.Wpf.CefSettings();
                 settings.CachePath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CefSharp\\Cache");
+                if(!System.IO.Directory.Exists(settings.CachePath))
+                {
+                    System.IO.Directory.CreateDirectory(settings.CachePath);
+                }
                 // We need to update useragent to be of one of the supported browsers on googles signin page
                 settings.UserAgent = Config.local.cef_useragent;
                 if (string.IsNullOrEmpty(Config.local.cef_useragent))
@@ -178,33 +252,44 @@ namespace OpenRPA
             System.Threading.Thread.CurrentThread.Name = "UIThread";
             if (!Config.local.isagent)
             {
-                RobotInstance.instance.MainWindow = new MainWindow();
-                RobotInstance.instance.Window = RobotInstance.instance.MainWindow;
-                RobotInstance.instance.MainWindow.ReadyForAction += RobotInstance.instance.MainWindowReadyForAction;
-                RobotInstance.instance.MainWindow.Status += RobotInstance.instance.MainWindowStatus;
-                GenericTools.MainWindow = RobotInstance.instance.MainWindow;
-                MainWindow = RobotInstance.instance.MainWindow;
                 if(!Config.local.showloadingscreen) notifyIcon.Visible = true;
-            } else
+            }
+            else
             {
-                RobotInstance.instance.AgentWindow = new AgentWindow();
-                RobotInstance.instance.Window = RobotInstance.instance.AgentWindow;
-                RobotInstance.instance.AgentWindow.ReadyForAction += RobotInstance.instance.MainWindowReadyForAction;
-                RobotInstance.instance.AgentWindow.Status += RobotInstance.instance.MainWindowStatus;
-                GenericTools.MainWindow = RobotInstance.instance.AgentWindow;
-                MainWindow = RobotInstance.instance.AgentWindow;
                 notifyIcon.Visible = true;
+            }
+            if(Config.local.files_pending_deletion.Length > 0)
+            {
+                bool sucess = true;
+                foreach(var f in Config.local.files_pending_deletion)
+                {
+                    try
+                    {
+                        if(System.IO.File.Exists(f)) System.IO.File.Delete(f);
+                    }
+                    catch (Exception ex)
+                    {
+                        sucess = false;
+                        Log.Error(ex.ToString());
+                    }
+                }
+                if(sucess)
+                {
+                    Config.local.files_pending_deletion = new string[] { };
+                    Config.Save();
+                }
             }
             RobotInstance.instance.Status += App_Status;
             Input.InputDriver.Instance.initCancelKey(Config.local.cancelkey);
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 try
                 {
                     if (Config.local.showloadingscreen) splash.BusyContent = "loading plugins";
-                    Plugins.LoadPlugins(RobotInstance.instance, Interfaces.Extensions.PluginsDirectory);
+                    // Plugins.LoadPlugins(RobotInstance.instance, Interfaces.Extensions.ProjectsDirectory);
+                    Plugins.LoadPlugins(RobotInstance.instance, Interfaces.Extensions.PluginsDirectory, false);
                     if (Config.local.showloadingscreen) splash.BusyContent = "Initialize main window";
-                    RobotInstance.instance.init();
+                    await RobotInstance.instance.init();
                 }
                 catch (Exception ex)
                 {

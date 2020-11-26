@@ -113,7 +113,7 @@ namespace OpenRPA.NM
             //}
             NativeMessagingMessage subresult = null;
 
-            var getelement = new NativeMessagingMessage("getelements", PluginConfig.debug_console_output);
+            var getelement = new NativeMessagingMessage("getelements", PluginConfig.debug_console_output, PluginConfig.unique_xpath_ids);
             getelement.browser = browser;
             getelement.xPath = xpath;
             getelement.cssPath = cssselector;
@@ -125,7 +125,7 @@ namespace OpenRPA.NM
                 getelement.tabid = ((NMElement)fromElement).message.tabid;
                 getelement.frameId = ((NMElement)fromElement).message.frameId;
             }
-                subresult = NMHook.sendMessageResult(getelement, false, TimeSpan.FromSeconds(2));
+                subresult = NMHook.sendMessageResult(getelement, false, PluginConfig.protocol_timeout);
             if (subresult != null)
                 if (subresult.results != null)
                     foreach (var b in subresult.results)

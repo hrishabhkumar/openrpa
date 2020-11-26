@@ -57,7 +57,7 @@ namespace OpenRPA.Views
         {
             get
             {
-                foreach (var i in WorkflowInstance.Instances)
+                foreach (var i in WorkflowInstance.Instances.ToList())
                 {
                     if (!string.IsNullOrEmpty(Workflow._id) && i.WorkflowId == Workflow._id)
                     {
@@ -105,10 +105,10 @@ namespace OpenRPA.Views
         public Action<WFDesigner> OnChanged { get; set; }
         public WorkflowDesigner WorkflowDesigner { get; private set; }
         public Workflow Workflow { get; private set; }
-        public bool HasChanged { get; private set; }
+        public bool HasChanged { get; set; }
         public void forceHasChanged(bool value) { HasChanged = value; }
         public ModelItem SelectedActivity { get; private set; }
-        public Project Project
+        public IProject Project
         {
             get
             {
@@ -131,7 +131,7 @@ namespace OpenRPA.Views
             //    if (ResumeRuntimeFromHost != null) ResumeRuntimeFromHost.Set();
 
             //});
-            foreach (var i in WorkflowInstance.Instances)
+            foreach (var i in WorkflowInstance.Instances.ToList())
             {
                 if (i.WorkflowId == Workflow._id && !i.isCompleted)
                 {
@@ -147,9 +147,9 @@ namespace OpenRPA.Views
                 if (!tab.IsSelected) return;
                 if (e.Key == Input.KeyboardKey.F10 || e.Key == Input.KeyboardKey.F11)
                 {
-                        if (currentprocessid == 0) currentprocessid = System.Diagnostics.Process.GetCurrentProcess().Id;
-                        var element = AutomationHelper.GetFromFocusedElement();
-                        if (element.ProcessId != currentprocessid) return;
+                    if (currentprocessid == 0) currentprocessid = System.Diagnostics.Process.GetCurrentProcess().Id;
+                    var element = AutomationHelper.GetFromFocusedElement();
+                    if (element.ProcessId != currentprocessid) return;
                     //if (!IsRunnning)
                     //{
                     //}
@@ -178,12 +178,30 @@ namespace OpenRPA.Views
                 var element = AutomationHelper.GetFromFocusedElement();
                 if (element.ProcessId != currentprocessid) return;
             }
-            if(e.Key == Key.F2)
+            if (e.Key == Key.F2)
             {
-                Task.Run(() => {
-                    if (Config.local.minimize) GenericTools.Minimize();
-                    System.Threading.Thread.Sleep(2000);
-                    MainWindow.instance.OnRecord(null);
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        if (Config.local.minimize) GenericTools.Minimize();
+                        System.Threading.Thread.Sleep(2000);
+                        GenericTools.RunUI(() =>
+                        {
+                            try
+                            {
+                                MainWindow.instance.OnRecord(null);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error(ex.ToString());
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex.ToString());
+                    }
                 });
             }
             if (e.Key == Key.F5)
@@ -303,10 +321,10 @@ namespace OpenRPA.Views
                 Activity wf = new System.Activities.Statements.Sequence { };
                 var ab = new ActivityBuilder
                 {
-                    Name = Workflow.name,
+                    Name = Workflow.name.Replace(" ", "_"),
                     Implementation = wf
                 };
-                AddVBNamespaceSettings(ab, typeof(Action),
+                WFHelper.AddVBNamespaceSettings(ab, typeof(Action),
                     typeof(System.Xml.XmlNode),
                     typeof(OpenRPA.Workflow),
                     typeof(OpenRPA.UIElement),
@@ -314,7 +332,7 @@ namespace OpenRPA.Views
                     typeof(System.Linq.Enumerable),
                     typeof(Microsoft.VisualBasic.Collection)
                     );
-                AddVBNamespaceSettings(ab, extratypes);
+                WFHelper.AddVBNamespaceSettings(ab, extratypes);
 
                 WorkflowDesigner.Load(ab);
             }
@@ -673,27 +691,6 @@ namespace OpenRPA.Views
                 Log.Error(ex.ToString());
             }
         }
-        public void AddVBNamespaceSettings(object rootObject, params Type[] types)
-        {
-            var vbsettings = Microsoft.VisualBasic.Activities.VisualBasic.GetSettings(rootObject);
-            if (vbsettings == null)
-            {
-                vbsettings = new Microsoft.VisualBasic.Activities.VisualBasicSettings();
-            }
-
-
-            foreach (Type t in types)
-            {
-                vbsettings.ImportReferences.Add(
-                    new Microsoft.VisualBasic.Activities.VisualBasicImportReference
-                    {
-                        Assembly = t.Assembly.GetName().Name,
-                        Import = t.Namespace
-                    });
-            }
-
-            Microsoft.VisualBasic.Activities.VisualBasic.SetSettings(rootObject, vbsettings);
-        }
         public bool IsSequenceSelected
         {
             get
@@ -703,21 +700,97 @@ namespace OpenRPA.Views
                 return false;
             }
         }
+        IWorkflow IDesigner.Workflow { get => Workflow; set { } }
+
         List<Activity> recording = null;
+        List<IPlugin> recordingplugins = null;
         public void BeginRecording()
         {
             recording = new List<Activity>();
+            recordingplugins = new List<IPlugin>();
         }
-        public ModelItem AddRecordingActivity(Activity a)
+        public ModelItem AddRecordingActivity(Activity a, IPlugin plugin)
         {
-            if (Config.local.recording_add_to_designer) return AddActivity(a);
+            var rootObject = GetRootElement();
+            Microsoft.VisualBasic.Activities.VisualBasicSettings vbsettings = Microsoft.VisualBasic.Activities.VisualBasic.GetSettings(rootObject);
+            if (vbsettings == null)
+            {
+                vbsettings = new Microsoft.VisualBasic.Activities.VisualBasicSettings();
+
+                vbsettings.ImportReferences.Add(
+                    new Microsoft.VisualBasic.Activities.VisualBasicImportReference
+                    {
+                        Assembly = typeof(TimeSpan).Assembly.GetName().Name,
+                        Import = typeof(TimeSpan).Namespace
+                    });
+                vbsettings.ImportReferences.Add(
+                    new Microsoft.VisualBasic.Activities.VisualBasicImportReference
+                    {
+                        Assembly = typeof(Action).Assembly.GetName().Name,
+                        Import = typeof(Action).Namespace
+                    });
+                vbsettings.ImportReferences.Add(
+                    new Microsoft.VisualBasic.Activities.VisualBasicImportReference
+                    {
+                        Assembly = typeof(System.Xml.XmlNode).Assembly.GetName().Name,
+                        Import = typeof(System.Xml.XmlNode).Namespace
+                    });
+                vbsettings.ImportReferences.Add(
+                    new Microsoft.VisualBasic.Activities.VisualBasicImportReference
+                    {
+                        Assembly = typeof(OpenRPA.UIElement).Assembly.GetName().Name,
+                        Import = typeof(OpenRPA.UIElement).Namespace
+                    });
+                vbsettings.ImportReferences.Add(
+                    new Microsoft.VisualBasic.Activities.VisualBasicImportReference
+                    {
+                        Assembly = typeof(OpenRPA.Workflow).Assembly.GetName().Name,
+                        Import = typeof(OpenRPA.Workflow).Namespace
+                    });
+                vbsettings.ImportReferences.Add(
+                    new Microsoft.VisualBasic.Activities.VisualBasicImportReference
+                    {
+                        Assembly = typeof(System.Data.DataSet).Assembly.GetName().Name,
+                        Import = typeof(System.Data.DataSet).Namespace
+                    });
+                vbsettings.ImportReferences.Add(
+                    new Microsoft.VisualBasic.Activities.VisualBasicImportReference
+                    {
+                        Assembly = typeof(Microsoft.VisualBasic.Collection).Assembly.GetName().Name,
+                        Import = typeof(Microsoft.VisualBasic.Collection).Namespace
+                    });
+            }
+            if (plugin != null)
+            {
+                Type t = plugin.GetType();
+                vbsettings.ImportReferences.Add(
+                    new Microsoft.VisualBasic.Activities.VisualBasicImportReference
+                    {
+                        Assembly = t.Assembly.GetName().Name,
+                        Import = t.Namespace
+                    });
+            }
+            Microsoft.VisualBasic.Activities.VisualBasic.SetSettings(rootObject, vbsettings);
+            //DynamicAssemblyMonitor(t.Assembly.GetName().Name, t.Assembly, true);
+            if (Config.local.recording_add_to_designer)
+            {
+                return AddActivity(a);
+            }
             if (recording == null) BeginRecording();
             recording.Add(a);
+            if (!recordingplugins.Contains(plugin)) recordingplugins.Add(plugin);
             return null;
         }
         public void EndRecording()
         {
             if (recording == null) return;
+            ModelService modelService = WorkflowDesigner.Context.Services.GetService<ModelService>();
+            foreach (var plugin in recordingplugins)
+            {
+                WFHelper.AddNamespaceSettings(GetRootElement(), new Type[] { plugin.GetType() });
+                Type t = plugin.GetType();
+                DynamicAssemblyMonitor(t.Assembly.GetName().Name, t.Assembly, true);
+            }
             foreach (var a in recording)
             {
                 var model = AddActivity(a);
@@ -727,6 +800,66 @@ namespace OpenRPA.Views
                 }
             }
             recording = null;
+        }
+        private void DynamicAssemblyMonitor(string fullname, Assembly asm, bool toadd)
+        {
+            //Get the designers acci
+            var acci = WorkflowDesigner.Context.Items.GetValue<System.Activities.Presentation.Hosting.AssemblyContextControlItem>() ?? new System.Activities.Presentation.Hosting.AssemblyContextControlItem();
+            if (acci.ReferencedAssemblyNames == null)
+                acci.ReferencedAssemblyNames = new List<AssemblyName>();
+            if (toadd)
+                AddDyanamicAssembly(acci, asm);
+            else
+                RemoveDynamicAssembly(acci, asm);
+        }
+        private void RemoveDynamicAssembly(System.Activities.Presentation.Hosting.AssemblyContextControlItem acci, Assembly asm)
+        {
+            if (acci.ReferencedAssemblyNames.Contains(asm.GetName()))
+            {
+                acci.ReferencedAssemblyNames.Remove(asm.GetName());
+                WorkflowDesigner.Context.Items.SetValue(acci);
+            }
+            var root = GetRootElement();
+            if (null == root) return;
+            var vbs = Microsoft.VisualBasic.Activities.VisualBasic.GetSettings(root) ?? new Microsoft.VisualBasic.Activities.VisualBasicSettings();
+
+            var namespaces = (from type in asm.GetTypes() select type.Namespace).Distinct();
+            var fullname = asm.FullName;
+            foreach (var name in namespaces)
+            {
+                var theimport = (from importname in vbs.ImportReferences where importname.Assembly == fullname where importname.Import == name select importname).FirstOrDefault();
+                if (theimport != null)
+                    vbs.ImportReferences.Remove(theimport);
+            }
+            Microsoft.VisualBasic.Activities.VisualBasic.SetSettings(root, vbs);
+
+        }
+        private void AddDyanamicAssembly(System.Activities.Presentation.Hosting.AssemblyContextControlItem acci, Assembly asm)
+        {
+            if (!acci.ReferencedAssemblyNames.Contains(asm.GetName()))
+            {
+                acci.ReferencedAssemblyNames.Add(asm.GetName());
+                WorkflowDesigner.Context.Items.SetValue(acci);
+            }
+            var root = GetRootElement();
+            var fullname = asm.FullName;
+            if (null == root) return;
+            var vbs = Microsoft.VisualBasic.Activities.VisualBasic.GetSettings(root) ?? new Microsoft.VisualBasic.Activities.VisualBasicSettings();
+
+            var namespaces = (from type in asm.GetTypes() select type.Namespace).Distinct();
+            foreach (var name in namespaces)
+            {
+                var import = new Microsoft.VisualBasic.Activities.VisualBasicImportReference() { Assembly = fullname, Import = name };
+                vbs.ImportReferences.Add(import);
+            }
+            Microsoft.VisualBasic.Activities.VisualBasic.SetSettings(root, vbs);
+        }
+        private object GetRootElement()
+        {
+            var modelservice = WorkflowDesigner.Context.Services.GetService<ModelService>();
+            if (modelservice == null) return null;
+            var rootmodel = modelservice.Root.GetCurrentValue();
+            return rootmodel;
         }
         public ModelItem AddActivity(Activity a)
         {
@@ -806,7 +939,7 @@ namespace OpenRPA.Views
         {
             ModelItem parent = from;
 
-            while (parent != null && parent.Properties["Activities"] == null && parent.Properties["Nodes"] == null)
+            while (parent != null && parent.Properties["Activities"] == null && parent.Properties["Handler"] == null && parent.Properties["Nodes"] == null)
             {
                 parent = parent.Parent;
             }
@@ -1024,7 +1157,7 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                     {
                         var loc = GetSourceLocationFromModelItem(modelItem);
                         var activity = modelItem.GetCurrentValue() as Activity;
-                        if(activity==null)
+                        if (activity == null)
                         {
                             var builder = modelItem.GetCurrentValue() as ActivityBuilder;
                             continue;
@@ -1068,7 +1201,7 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                 Log.Error(ex.ToString());
             }
         }
-        public IDictionary<SourceLocation, System.Activities.Presentation.Debug.BreakpointTypes> BreakpointLocations = null;
+        public IDictionary<SourceLocation, System.Activities.Presentation.Debug.BreakpointTypes> BreakpointLocations { get; set; }
         public void OnVisualTracking(IWorkflowInstance Instance, string ActivityId, string ChildActivityId, string State)
         {
             try
@@ -1132,8 +1265,9 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                 Log.Error(ex.ToString());
             }
         }
-        internal void IdleOrComplete(IWorkflowInstance instance, EventArgs e)
+        public void IdleOrComplete(IWorkflowInstance instance, EventArgs e)
         {
+
             if (!string.IsNullOrEmpty(instance.queuename) && !string.IsNullOrEmpty(instance.correlationId))
             {
                 Interfaces.mq.RobotCommand command = new Interfaces.mq.RobotCommand();
@@ -1145,7 +1279,17 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                 {
                     command.data = JObject.FromObject(instance.Exception);
                 }
-                _ = global.webSocketClient.QueueMessage(instance.queuename, command, instance.correlationId);
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await global.webSocketClient.QueueMessage(instance.queuename, command, null, instance.correlationId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Debug(ex.Message);
+                    }
+                });
                 OnChanged?.Invoke(this);
             }
             if (instance.state == "idle" && Singlestep == true)
@@ -1213,13 +1357,14 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                                     NavigateTo(model);
                                 }
                             });
-                        } else
+                        }
+                        else
                         {
                             GenericTools.RunUI(() =>
                             {
                                 SetDebugLocation(null);
                             });
-                            
+
                         }
                     }
                 }
@@ -1266,7 +1411,7 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
             }
             if (instance.hasError || instance.isCompleted)
             {
-                foreach (var wi in WorkflowInstance.Instances)
+                foreach (var wi in WorkflowInstance.Instances.ToList())
                 {
                     if (wi.isCompleted) continue;
                     if (wi.Bookmarks == null) continue;
@@ -1355,7 +1500,7 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                 ReadOnly = true;
                 if (!VisualTracking && Config.local.minimize) GenericTools.Minimize();
             });
-            if(instance!=null) instance.Run();
+            if (instance != null) instance.Run();
         }
         private void ShowVariables(IDictionary<string, WorkflowInstanceValueType> Variables)
         {
@@ -1397,7 +1542,7 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                     else if (model.ItemType == typeof(System.Activities.ActivityBuilder))
                     {
                         var name = model.GetValue<string>("Name");
-                        if(name != null && name.Contains(" "))
+                        if (name != null && name.Contains(" "))
                         {
                             name = name.Replace(" ", "_");
                             model.Properties["Name"].SetValue(name);
@@ -1465,7 +1610,9 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
             var thisselection = selection;
             var comment = SelectedActivity;
             var currentSequence = SelectedActivity.Properties["Body"].Value;
-            var newSequence = GetActivitiesScope(SelectedActivity.Parent.Parent);
+            if (currentSequence == null) return;
+            //var newSequence = GetActivitiesScope(SelectedActivity.Parent.Parent);
+            var newSequence = GetActivitiesScope(SelectedActivity.Parent);
             ModelItemCollection currentActivities = null;
             if (currentSequence.Properties["Activities"] != null)
             {
@@ -1524,6 +1671,11 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                 }
                 newActivities.Remove(comment);
             }
+            if (currentActivities != null && currentActivities.Count == 1 && comment.Parent.Properties["Handler"] != null)
+            {
+                var handler = comment.Parent.Properties["Handler"];
+                handler.SetValue(currentActivities.First());
+            }
             else if (currentActivities == null && newActivities != null)
             {
                 var index = newActivities.IndexOf(comment);
@@ -1539,41 +1691,93 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                     var handler = body.Value.Properties["Handler"];
                     handler.SetValue(handler.Value.Properties["Body"].Value);
                 }
+                else if (newSequence.Properties["Handler"] != null)
+                {
+                    var handler = newSequence.Properties["Handler"];
+                    handler.SetValue(currentSequence);
+                }
+            }
+            else if (currentSequence != null && comment.Parent != null && comment.Parent.Properties["Handler"] != null)
+            {
+                var handler = comment.Parent.Properties["Handler"];
+                handler.SetValue(currentSequence);
             }
         }
         private void OnComment(object sender, RoutedEventArgs e)
         {
             var thisselection = selection;
+            var pri = thisselection.PrimarySelection;
+            if (pri == null) return;
             //var movethis = selectedActivity;
+
             var lastSequence = GetActivitiesScope(SelectedActivity.Parent);
             if (lastSequence == null) lastSequence = GetActivitiesScope(SelectedActivity);
-            ModelItemCollection Activities;
+            ModelItemCollection Activities = null;
             if (lastSequence.Properties["Activities"] != null)
             {
                 Activities = lastSequence.Properties["Activities"].Collection;
             }
-            else
+            else if (lastSequence.Properties["Nodes"] != null)
             {
                 Activities = lastSequence.Properties["Nodes"].Collection;
             }
 
-            if (thisselection.SelectionCount > 1)
+            if (SelectedActivity.ItemType == typeof(Sequence))
+            {
+                var parent = SelectedActivity.Parent;
+                if (SelectedActivity.Parent.ItemType == typeof(ActivityBuilder)) return;
+                if (parent.Properties["Activities"] != null)
+                {
+                    Activities = parent.Properties["Activities"].Collection;
+                }
+                var co = new Activities.CommentOut
+                {
+                    Body = SelectedActivity.GetCurrentValue() as Activity
+                };
+                if (Activities == null)
+                {
+                    var item = thisselection.PrimarySelection.Parent.Properties["Handler"].SetValue(co);
+                }
+                else
+                {
+                    Activities.Remove(SelectedActivity);
+                    Activities.Add(co);
+                }
+            }
+            else if (thisselection.SelectionCount > 1 || thisselection.PrimarySelection.ItemType == typeof(Sequence))
             {
                 if (lastSequence.Properties["Nodes"] != null) return;
                 var co = new Activities.CommentOut
                 {
                     Body = new Sequence()
                 };
-                AddActivity(co);
-                var newActivities = SelectedActivity.Properties["Body"].Value.Properties["Activities"].Collection;
-                foreach (var sel in thisselection.SelectedObjects)
+                if (Activities == null)
                 {
-                    Activities.Remove(sel);
-                    var index = newActivities.Count;
-                    Log.Debug("insert at " + index);
-                    newActivities.Insert(0, sel);
-                    //newActivities.Add(sel);
+                    var item = thisselection.PrimarySelection.Parent.Properties["Handler"].SetValue(co);
+                    var newActivities = item.Properties["Body"].Value.Properties["Activities"].Collection;
+                    foreach (var sel in thisselection.SelectedObjects)
+                    {
+                        if (Activities != null) Activities.Remove(sel);
+                        var index = newActivities.Count;
+                        Log.Debug("insert at " + index);
+                        newActivities.Insert(0, sel);
+                        //newActivities.Add(sel);
+                    }
                 }
+                else
+                {
+                    AddActivity(co);
+                    var newActivities = SelectedActivity.Properties["Body"].Value.Properties["Activities"].Collection;
+                    foreach (var sel in thisselection.SelectedObjects)
+                    {
+                        if (Activities != null) Activities.Remove(sel);
+                        var index = newActivities.Count;
+                        Log.Debug("insert at " + index);
+                        newActivities.Insert(0, sel);
+                        //newActivities.Add(sel);
+                    }
+                }
+
             }
             else
             {
@@ -1651,7 +1855,7 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
         {
             var thisselection = selection;
             if (selection == null) return;
-            if(selection.SelectedObjects.Count() == 0) return;
+            if (selection.SelectedObjects.Count() == 0) return;
             var modelitem = selection.SelectedObjects.ElementAt(0);
             var p = modelitem.Properties["Id"];
             var id = (string)p.ComputedValue;
@@ -1668,7 +1872,7 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                     return;
                 }
                 WorkflowDesigner.Flush();
-                
+
                 if (global.isConnected)
                 {
                     if (!Workflow.hasRight(global.webSocketClient.user, Interfaces.entity.ace_right.invoke))
@@ -1699,7 +1903,7 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                     InitializeStateEnvironment();
                 }
                 // if (instance != null) instance.Run();
-                if(_activityIdMapping.ContainsKey(id))
+                if (_activityIdMapping.ContainsKey(id))
                 {
                     Log.Information("Getting activity " + id);
                     var a = _activityIdMapping[id];
@@ -1708,7 +1912,8 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                     //var rootModel = modelService.Root;
                     //instance.Run(root, id);
                     instance.RunThis(root, a);
-                } else
+                }
+                else
                 {
                     Log.Error("Failed finding activity " + id + ", try and close and reopen the designer");
                 }
@@ -1774,7 +1979,7 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
             });
         }
 
-        
+
         public static async Task<string> LoadImages(string xaml)
         {
             WorkflowDesigner wfDesigner;
@@ -1798,7 +2003,7 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
                             using (var b = await Interfaces.Image.Util.LoadBitmap(image))
                             {
                                 image = Interfaces.Image.Util.Bitmap2Base64(b);
-                            }                                
+                            }
                             item.Properties["Image"].SetValue(image);
                         }
                     }
@@ -1827,5 +2032,6 @@ Union(modelService.Find(modelService.Root, typeof(System.Activities.Debugger.Sta
             wfDesigner.Flush();
             return wfDesigner.Text;
         }
+
     }
 }

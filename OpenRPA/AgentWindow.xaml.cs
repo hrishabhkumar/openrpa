@@ -14,6 +14,8 @@ namespace OpenRPA
 {
     public partial class AgentWindow : Window, INotifyPropertyChanged, IMainWindow
     {
+        public bool VisualTracking { get; set; } = false;
+        public bool SlowMotion { get; set; } = false;
         public static AgentWindow instance { get; set; }
         public AgentWindow()
         {
@@ -90,6 +92,33 @@ namespace OpenRPA
             }
         }
         private bool first_connect = true;
+        public IDesigner[] Designers
+        {
+            get
+            {
+                if (DManager == null) return new Views.WFDesigner[] { };
+                var result = new List<Views.WFDesigner>();
+                try
+                {
+                    var las = DManager.Layout.Descendents().OfType<LayoutAnchorable>().ToList();
+                    foreach (var dp in las)
+                    {
+                        if (dp.Content is Views.WFDesigner view) result.Add(view);
+
+                    }
+                    var ld = DManager.Layout.Descendents().OfType<LayoutDocument>().ToList();
+                    foreach (var document in ld)
+                    {
+                        if (document.Content is Views.WFDesigner view) result.Add(view);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex.ToString());
+                }
+                return result.ToArray();
+            }
+        }
         public void MainWindow_WebSocketClient_OnOpen()
         {
             Log.FunctionIndent("AgentWindow", "MainWindow_WebSocketClient_OnOpen");
@@ -246,7 +275,7 @@ namespace OpenRPA
             try
             {
                 Log.Information("Detector " + plugin.Entity.name + " was triggered, with id " + plugin.Entity._id);
-                foreach (var wi in WorkflowInstance.Instances)
+                foreach (var wi in WorkflowInstance.Instances.ToList())
                 {
                     if (wi.isCompleted) continue;
                     if (wi.Bookmarks != null)
@@ -264,14 +293,24 @@ namespace OpenRPA
                 }
                 if (!global.isConnected) return;
                 Interfaces.mq.RobotCommand command = new Interfaces.mq.RobotCommand();
-                detector.user = global.webSocketClient.user;
+                // detector.user = global.webSocketClient.user;
                 var data = JObject.FromObject(detector);
                 var Entity = (plugin.Entity as Interfaces.entity.Detector);
                 command.command = "detector";
                 command.detectorid = Entity._id;
                 if (string.IsNullOrEmpty(Entity._id)) return;
                 command.data = data;
-                _ = global.webSocketClient.QueueMessage(Entity._id, command, null);
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await global.webSocketClient.QueueMessage(Entity._id, command, null, null);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Debug(ex.Message);
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -307,7 +346,18 @@ namespace OpenRPA
                     {
                         command.data = JObject.FromObject(instance.Exception);
                     }
-                    _ = global.webSocketClient.QueueMessage(instance.queuename, command, instance.correlationId);
+                    Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await global.webSocketClient.QueueMessage(instance.queuename, command, null, instance.correlationId);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Debug(ex.Message);
+                        }
+                    });
+
                 }
                 if (instance.hasError || instance.isCompleted)
                 {
@@ -336,7 +386,7 @@ namespace OpenRPA
                         }
                     }
                     System.Threading.Thread.Sleep(200);
-                    foreach (var wi in WorkflowInstance.Instances)
+                    foreach (var wi in WorkflowInstance.Instances.ToList())
                     {
                         if (wi.isCompleted) continue;
                         if (wi.Bookmarks == null) continue;
@@ -426,7 +476,7 @@ namespace OpenRPA
                 }
             }, null);
         }
-        private void OnOpenWorkflow(Workflow obj)
+        public void OnOpenWorkflow(IWorkflow obj)
         {
             OnPlay(obj);
         }

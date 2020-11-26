@@ -16,17 +16,15 @@ namespace OpenRPA.Net
 {
     public class WebSocketClient : IWebSocketClient
     {
-        // private ClientWebSocket ws = (ClientWebSocket)SystemClientWebSocket.CreateClientWebSocket();  // new ClientWebSocket(); // WebSocket
-        // private System.Net.WebSockets.Managed.ClientWebSocket ws = new System.Net.WebSockets.Managed.ClientWebSocket();  // new ClientWebSocket(); // WebSocket
-        // private System.Net.WebSockets.Managed.ClientWebSocket ws = null;  // new ClientWebSocket(); // WebSocket
-        private WebSocket ws = null;  // new ClientWebSocket(); // WebSocket
+        static SemaphoreSlim ProcessingSemaphore = new SemaphoreSlim(1, 1);
+        static SemaphoreSlim SendStringSemaphore = new SemaphoreSlim(1, 1);
+        private WebSocket ws = null;
         public int websocket_package_size = 4096;
         public string url { get; set; }
         private CancellationTokenSource src = new CancellationTokenSource();
         private List<SocketMessage> _receiveQueue = new List<SocketMessage>();
         private List<SocketMessage> _sendQueue = new List<SocketMessage>();
         private List<QueuedMessage> _messageQueue = new List<QueuedMessage>();
-        // public delegate void QueueMessageDelegate(IQueueMessage message, QueueMessageEventArgs e);
         public event Action OnOpen;
         public event Action<string> OnClose;
         public event QueueMessageDelegate OnQueueMessage;
@@ -152,14 +150,20 @@ namespace OpenRPA.Net
                     if (TryParseJSON(json))
                     {
                         var message = JsonConvert.DeserializeObject<SocketMessage>(json);
-                        if (message != null) _receiveQueue.Add(message);
+                        lock (_receiveQueue)
+                        {
+                            if (message != null) _receiveQueue.Add(message);
+                        }
                     } else
                     {
                         
                         if (TryParseJSON(tempbuffer + json))
                         {
                             var message = JsonConvert.DeserializeObject<SocketMessage>(tempbuffer + json);
-                            if (message != null) _receiveQueue.Add(message);
+                            lock (_receiveQueue)
+                            {
+                                if (message != null) _receiveQueue.Add(message);
+                            }
                             tempbuffer = null;
                         } 
                         else
@@ -218,23 +222,25 @@ namespace OpenRPA.Net
                 msg.SendMessage(this);
             }
         }
-        static SemaphoreSlim ProcessingSemaphore = new SemaphoreSlim(1, 1);
         public async Task ProcessQueue()
         {
             try
             {
-                //await ReceiveSemaphore.WaitAsync();
                 await ProcessingSemaphore.WaitAsync();
                 if (_receiveQueue == null) return;
                 List<string> ids = new List<string>();
-                for(var i = 0; i < _receiveQueue.Count; i++)
+                lock (_receiveQueue)
                 {
-                    if(_receiveQueue[i]!=null)
+                    for (var i = 0; i < _receiveQueue.Count; i++)
                     {
-                        string id = _receiveQueue[i].id;
-                        if (!ids.Contains(id)) ids.Add(id);
+                        if (_receiveQueue[i] != null)
+                        {
+                            string id = _receiveQueue[i].id;
+                            if (!ids.Contains(id)) ids.Add(id);
+                        }
                     }
                 }
+
                 // ids = (from m in _receiveQueue group m by new { m.id } into mygroup select mygroup.Key.id).ToList();
                 foreach (var id in ids)
                 {
@@ -255,16 +261,18 @@ namespace OpenRPA.Net
                         }
                         var result = new Message(first, data);
                         Process(result);
-                        foreach (var m in msgs.OrderBy((y) => y.index).ToList())
+                        lock (_receiveQueue)
                         {
-                            _receiveQueue.Remove(m);
+                            foreach (var m in msgs.OrderBy((y) => y.index).ToList())
+                            {
+                                _receiveQueue.Remove(m);
+                            }
                         }
                     }
                 }
             }
             finally
             {
-                //ReceiveSemaphore.Release();
             }
 
             try
@@ -274,7 +282,6 @@ namespace OpenRPA.Net
                 {
                     templist = _sendQueue.ToList();
                 }
-                // await SendSemaphore.WaitAsync();
                 foreach (var msg in templist)
                 {
                     if (await SendString(JsonConvert.SerializeObject(msg), src.Token))
@@ -285,25 +292,22 @@ namespace OpenRPA.Net
             }
             finally
             {
-                //SendSemaphore.Release();
                 ProcessingSemaphore.Release();
             }
         }
-        static SemaphoreSlim SendStringSemaphore = new SemaphoreSlim(1, 1);
         private async Task<bool> SendString(string data, CancellationToken cancellation)
         {
             if (ws == null) { return false; }
-            if (ws.State != System.Net.WebSockets.WebSocketState.Open) { return false; }
+            if (ws.State != WebSocketState.Open) { return false; }
             var encoded = Encoding.UTF8.GetBytes(data);
             var buffer = new ArraySegment<Byte>(encoded, 0, encoded.Length);
             try
             {
                 await SendStringSemaphore.WaitAsync();
-                //await ws.SendAsync(buffer, WebSocketMessageType.Text, true, cancellation);
-                await ws.SendAsync(buffer, System.Net.WebSockets.WebSocketMessageType.Text, true, cancellation);
+                await ws.SendAsync(buffer, WebSocketMessageType.Text, true, cancellation);
                 return true;
             }
-            catch (System.Net.WebSockets.WebSocketException ex)
+            catch (WebSocketException ex)
             {
                 Log.Error(ex, "");
                 _ = Close();
@@ -324,6 +328,7 @@ namespace OpenRPA.Net
             {
                 _sendQueue.Add(msg);
             }
+            _ = ProcessQueue();
         }
         private void Process(Message msg)
         {
@@ -388,12 +393,11 @@ namespace OpenRPA.Net
                         {
                             var e = new QueueMessageEventArgs();
                             OnQueueMessage?.Invoke(qm, e);
-                            msg.data = JsonConvert.SerializeObject(qm);                            
+                            msg.data = JsonConvert.SerializeObject(qm);
                             if (e.isBusy)
                             {
                                 msg.command = "error";
                                 msg.data = "Sorry, I'm bussy";
-                                Log.Warning("Cannot invoke, I'm busy.");
                                 msg.SendMessage(this);
                                 return;
                             }
@@ -429,7 +433,9 @@ namespace OpenRPA.Net
         }
         public async Task<TokenUser> Signin(string username, SecureString password, string clientagent = "", string clientversion = "")
         {
-            SigninMessage signin = new SigninMessage(username, password, System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
+            var asm = System.Reflection.Assembly.GetEntryAssembly();
+            if (asm == null) asm = System.Reflection.Assembly.GetExecutingAssembly();
+            SigninMessage signin = new SigninMessage(username, password, asm.GetName().Version.ToString());
             if (!string.IsNullOrEmpty(clientagent)) signin.clientagent = clientagent;
             if (!string.IsNullOrEmpty(clientversion)) signin.clientversion = clientversion;
             signin = await signin.SendMessage<SigninMessage>(this);
@@ -444,7 +450,9 @@ namespace OpenRPA.Net
         }
         public async Task<TokenUser> Signin(string jwt, string clientagent = "", string clientversion = "")
         {
-            SigninMessage signin = new SigninMessage(jwt, System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
+            var asm = System.Reflection.Assembly.GetEntryAssembly();
+            if (asm == null) asm = System.Reflection.Assembly.GetExecutingAssembly();
+            SigninMessage signin = new SigninMessage(jwt, asm.GetName().Version.ToString());
             if (!string.IsNullOrEmpty(clientagent)) signin.clientagent = clientagent;
             if (!string.IsNullOrEmpty(clientversion)) signin.clientversion = clientversion;
             signin = await signin.SendMessage<SigninMessage>(this);
@@ -459,7 +467,9 @@ namespace OpenRPA.Net
         }
         public async Task<TokenUser> Signin(SecureString jwt, string clientagent = "", string clientversion = "")
         {
-            SigninMessage signin = new SigninMessage(jwt, System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
+            var asm = System.Reflection.Assembly.GetEntryAssembly();
+            if (asm == null) asm = System.Reflection.Assembly.GetExecutingAssembly();
+            SigninMessage signin = new SigninMessage(jwt, asm.GetName().Version.ToString());
             if (!string.IsNullOrEmpty(clientagent)) signin.clientagent = clientagent;
             if (!string.IsNullOrEmpty(clientversion)) signin.clientversion = clientversion;
             signin = await signin.SendMessage<SigninMessage>(this);
@@ -478,16 +488,17 @@ namespace OpenRPA.Net
             RegisterQueue = await RegisterQueue.SendMessage<RegisterUserMessage>(this);
             if (!string.IsNullOrEmpty(RegisterQueue.error)) throw new Exception(RegisterQueue.error);
         }
-        public async Task RegisterQueue(string queuename)
+        public async Task<string> RegisterQueue(string queuename)
         {
             RegisterQueueMessage RegisterQueue = new RegisterQueueMessage(queuename);
             RegisterQueue = await RegisterQueue.SendMessage<RegisterQueueMessage>(this);
             if (!string.IsNullOrEmpty(RegisterQueue.error)) throw new Exception(RegisterQueue.error);
+            return RegisterQueue.queuename;
         }
-        public async Task<object> QueueMessage(string queuename, object data, string correlationId = null)
+        public async Task<object> QueueMessage(string queuename, object data, string replyto, string correlationId)
         {
             QueueMessage qm = new QueueMessage(queuename);
-            qm.data = data;
+            qm.data = data; qm.replyto = replyto;
             qm.correlationId = correlationId;
             qm = await qm.SendMessage<QueueMessage>(this);
             if (!string.IsNullOrEmpty(qm.error)) throw new Exception(qm.error);
@@ -505,7 +516,9 @@ namespace OpenRPA.Net
                 cont = false;
                 QueryMessage<T> q = new QueryMessage<T>(); q.top = _top; q.skip = _skip;
                 q.projection = projection; q.orderby = orderby; q.queryas = queryas;
-                q.collectionname = collectionname; q.query = JObject.Parse(query);
+                q.collectionname = collectionname;
+                if (string.IsNullOrEmpty(query)) query = "{}";
+                    q.query = JObject.Parse(query);
                 q = await q.SendMessage<QueryMessage<T>>(this);
                 if (!string.IsNullOrEmpty(q.error)) throw new Exception(q.error);
                 result.AddRange(q.result);
@@ -555,15 +568,6 @@ namespace OpenRPA.Net
             q = await q.SendMessage<DeleteOneMessage>(this);
             if (!string.IsNullOrEmpty(q.error)) throw new Exception(q.error);
         }
-        //public async Task UpdateOne(string collectionname, string query, int w, bool j, JObject UpdateDoc)
-        //{
-        //    UpdateOneMessage<JObject> q = new UpdateOneMessage<JObject>();
-        //    q.w = w; q.j = j; q.query = query;
-        //    q.collectionname = collectionname; q.item = UpdateDoc;
-        //    q = await q.SendMessage<UpdateOneMessage<JObject>>(this);
-        //    if (!string.IsNullOrEmpty(q.error)) throw new Exception(q.error);
-        //    // return q.result;
-        //}
         public async Task<string> UploadFile(string filepath, string path, metadata metadata)
         {
             if (string.IsNullOrEmpty(path)) path = "";
@@ -625,5 +629,15 @@ namespace OpenRPA.Net
             if (!string.IsNullOrEmpty(q.error)) throw new Exception(q.error);
             return q.newinstanceid;
         }
+        public async Task<Interfaces.ICollection[]> ListCollections(bool includehist = false)
+        {
+            var q = new ListCollectionsMessage();
+            q.includehist = includehist; q.jwt = jwt;
+            q = await q.SendMessage<ListCollectionsMessage>(this);
+            if (!string.IsNullOrEmpty(q.error)) throw new Exception(q.error);
+            return q.result;
+        }
+
     }
+
 }

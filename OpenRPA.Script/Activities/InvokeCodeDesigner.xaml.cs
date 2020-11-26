@@ -4,6 +4,7 @@ using System;
 using System.Activities;
 using System.Activities.Expressions;
 using System.Activities.Presentation.Model;
+using System.Activities.Statements;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -26,7 +27,6 @@ namespace OpenRPA.Script.Activities
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
-
         public List<ModelItem> FindVariablesInScope(ModelItem ModelItem)
         {
             List<ModelItem> variableModels = null;
@@ -44,6 +44,27 @@ namespace OpenRPA.Script.Activities
                     variableModels = o as List<ModelItem>;
                 }
             }
+            ModelItem loadFrom = ModelItem.Parent;
+            while (loadFrom.Parent != null)
+            {
+                var p = loadFrom.Properties.Where(x => x.Name == "Argument").FirstOrDefault();
+                if (p != null)
+                {
+                    var value = p.ComputedValue;
+                    if(value != null)
+                    {
+                        if( value is System.Activities.DelegateInArgument)
+                        {
+                            variableModels.Add(p.Value);
+                        }
+                    }
+                }
+                if (loadFrom.ItemType == typeof(Sequence))
+                {
+                }
+                loadFrom = loadFrom.Parent;
+            }
+
             return variableModels;
         }
         private void Button_Click(object sender, RoutedEventArgs e)
@@ -62,6 +83,7 @@ namespace OpenRPA.Script.Activities
             if (string.IsNullOrEmpty(language)) language = "VB";
             var f = new Editor(code, language, vars, namespaces.ToArray());
             f.textEditor.SyntaxHighlighting = f.Languages.Where(x => x.Name == language).FirstOrDefault();
+            f.Owner = GenericTools.MainWindow;
             f.ShowDialog();
             if (f.textEditor.Text != code)
             {
@@ -72,7 +94,6 @@ namespace OpenRPA.Script.Activities
                 ModelItem.Properties["Language"].SetValue(new InArgument<string>() { Expression = new Literal<string>(f.textEditor.SyntaxHighlighting.Name) });
             }
         }
-
         private void ActivityDesigner_Loaded(object sender, RoutedEventArgs e)
         {
             var ec = ModelItemExtensions.GetEditingContext(ModelItem);

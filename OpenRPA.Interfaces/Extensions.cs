@@ -37,8 +37,93 @@ namespace OpenRPA.Interfaces
     }
     public static class Extensions
     {
+        public static string Base64Encode(string plainText)
+        {
+            if (string.IsNullOrEmpty(plainText)) plainText = "";
+            var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(plainText);
+            return System.Convert.ToBase64String(plainTextBytes);
+        }
+        public static string Base64Decode(string base64EncodedData)
+        {
+            if (string.IsNullOrEmpty(base64EncodedData)) return null;
+            var base64EncodedBytes = System.Convert.FromBase64String(base64EncodedData);
+            return System.Text.Encoding.UTF8.GetString(base64EncodedBytes);
+        }
+        static public string GetStringFromResource(string resourceName)
+        {
+            return GetStringFromResource(typeof(Extensions), resourceName);
+        }
+        static public string GetStringFromResource(Type t, string resourceName)
+        {
+            string[] names = t.Assembly.GetManifestResourceNames();
+            foreach (var name in names)
+            {
+                if (name.EndsWith(resourceName))
+                {
+                    using (var stream = t.Assembly.GetManifestResourceStream(name))
+                    using (var reader = new System.IO.StreamReader(stream))
+                    {
+                        string result = reader.ReadToEnd();
+                        return result;
+                    }
+                }
+            }
+            return null;
+        }
+        public static Type FindType(string qualifiedTypeName)
+        {
+            Type t = Type.GetType(qualifiedTypeName);
+
+            if (t != null)
+            {
+                return t;
+            }
+            else
+            {
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    t = asm.GetType(qualifiedTypeName);
+                    if (t != null)
+                        return t;
+                }
+                return null;
+            }
+        }
+        public static System.Data.DataTable ToDataTable(this Newtonsoft.Json.Linq.JArray jArray)
+        {
+            var result = new System.Data.DataTable();
+            foreach (var row in jArray)
+            {
+                foreach (var jToken in row)
+                {
+                    var jproperty = jToken as Newtonsoft.Json.Linq.JProperty;
+                    if (jproperty == null) continue;
+                    if (result.Columns[jproperty.Name] == null)
+                        result.Columns.Add(jproperty.Name, typeof(string));
+                }
+            }
+            foreach (var row in jArray)
+            {
+                var datarow = result.NewRow();
+                foreach (var jToken in row)
+                {
+                    var jProperty = jToken as Newtonsoft.Json.Linq.JProperty;
+                    if (jProperty == null) continue;
+                    datarow[jProperty.Name] = jProperty.Value.ToString();
+                }
+                result.Rows.Add(datarow);
+            }
+            result.AcceptChanges();
+            return result;
+        }
+        public static Newtonsoft.Json.Linq.JArray ToJArray(this System.Data.DataTable dt)
+        {
+            string json = Newtonsoft.Json.JsonConvert.SerializeObject(dt);
+            return Newtonsoft.Json.Linq.JArray.Parse(json);
+        }
         public static IEnumerable<T> GetMyCustomAttributes<T>(this Type type, bool inherit)
         {
+            if (type == null) return default(IEnumerable<T>);
             return type
                 .GetCustomAttributes(typeof(T), inherit)
                 .Cast<T>();
@@ -146,6 +231,7 @@ namespace OpenRPA.Interfaces
             get
             {
                 var asm = System.Reflection.Assembly.GetEntryAssembly();
+                if (asm == null) asm = System.Reflection.Assembly.GetExecutingAssembly();
                 var filepath = asm.CodeBase.Replace("file:///", "");
                 var path = System.IO.Path.GetDirectoryName(filepath);
                 return path;
@@ -307,7 +393,7 @@ namespace OpenRPA.Interfaces
         }
         public static T TryCast<T>(this object obj)
         {
-            if (TryCast<T>(obj, out T result))
+            if (TryCast(obj, out T result))
                 return result;
             return result;
         }
@@ -326,6 +412,22 @@ namespace OpenRPA.Interfaces
                 return result;
             }
             return result;
+        }
+        public static void SetValue<T>(this System.Activities.Presentation.Model.ModelItem model, string name, T value)
+        {
+            if (model.Properties[name] != null)
+            {
+                model.Properties[name].SetValue(value);
+            }
+        }
+        public static void SetValueInArg<T>(this System.Activities.Presentation.Model.ModelItem model, string name, T value)
+        {
+            model.SetValue(name, new System.Activities.InArgument<T>() { Expression = new System.Activities.Expressions.Literal<T>(value) });
+        }
+        public static void SetValueOutArg<T>(this System.Activities.Presentation.Model.ModelItem model, string name, string value)
+        {
+            model.SetValue(name, new System.Activities.OutArgument<T>() { Expression = new Microsoft.VisualBasic.Activities.VisualBasicReference<T>(value) });
+            // model.SetValue(name, new System.Activities.OutArgument<T>() { Expression = new Microsoft.VisualBasic.Activities.VisualBasicValue<T>(value) });
         }
         public static ProcessInfo GetProcessInfo(this AutomationElement element)
         {

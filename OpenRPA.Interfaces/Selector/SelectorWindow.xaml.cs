@@ -175,7 +175,7 @@ namespace OpenRPA.Interfaces.Selector
                 {
                     try
                     {
-                        _overlayWindow.Visible = true;
+                        //_overlayWindow.Visible = true;
                         _overlayWindow.Dispose();
                     }
                     catch (Exception ex)
@@ -196,13 +196,12 @@ namespace OpenRPA.Interfaces.Selector
         }
         private void Plugin_OnUserAction(IRecordPlugin sender, IRecordEvent e)
         {
-            CancelOverlay();
-            vm.Plugin.Stop();
-            OpenRPA.Input.InputDriver.Instance.onCancel -= OnCancel;
+            OnCancel();
             // OpenRPA.Input.InputDriver.Instance.CallNext = true;
             e.ClickHandled = true;
             GenericTools.Restore(this);
             vm.Selector = e.Selector;
+            vm.json = vm.Selector.ToString();
             vm.FocusElement(e.Selector);
             vm.NotifyPropertyChanged("json");
             // e.Element
@@ -318,10 +317,11 @@ namespace OpenRPA.Interfaces.Selector
         }
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            vm.Directories.Add(new treeelement(null) { Name = "Loading" });
             Task.Run(() =>
             {
                 var treeelements = vm.Plugin.GetRootElements(vm.Anchor);
-                GenericTools.RunUI(this, () =>
+                GenericTools.RunUI(() =>
                 {
                     Log.Debug("init selector model, with " + treeelements.Count() + " root elements");
                     vm.init(treeelements);
@@ -337,10 +337,12 @@ namespace OpenRPA.Interfaces.Selector
         private void Ok_Click(object sender, RoutedEventArgs e)
         {
             this.DialogResult = true;
+            this.Close();
         }
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
             this.DialogResult = false;
+            this.Close();
         }
     }
 }

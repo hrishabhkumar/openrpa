@@ -25,6 +25,7 @@ namespace OpenRPA.IE
         public ActivityAction<IEElement> Body { get; set; }
         public InArgument<TimeSpan> Timeout { get; set; }
         public InArgument<int> MaxResults { get; set; }
+        public InArgument<int> MinResults { get; set; }
         [RequiredArgument]
         public InArgument<string> Selector { get; set; }
         public InArgument<IEElement> From { get; set; }
@@ -51,17 +52,27 @@ namespace OpenRPA.IE
             var timeout = Timeout.Get(context);
             var from = From.Get(context);
             var maxresults = MaxResults.Get(context);
+            var minresults = MinResults.Get(context);
             if (maxresults < 1) maxresults = 1;
             IEElement[] elements = { };
 
             if (WaitForReady.Get(context))
             {
-                var browser = Browser.GetBrowser();
+                var browser = Browser.GetBrowser(false);
                 MSHTML.HTMLDocument doc = browser.Document;
                 var sw2 = new Stopwatch();
                 sw2.Start();
-                while (sw2.Elapsed < timeout && doc.readyState != "complete" && doc.readyState != "interactive")
+                string readyState = "";
+                while (sw2.Elapsed < timeout && readyState != "complete" && readyState != "interactive")
                 {
+                    try
+                    {
+                        readyState = doc.readyState;
+                    }
+                    catch (Exception)
+                    {
+                        browser = Browser.GetBrowser(true);
+                    }
                     // Log.Debug("pending complete, readyState: " + doc.readyState);
                     System.Threading.Thread.Sleep(100);
                 }
@@ -72,9 +83,15 @@ namespace OpenRPA.IE
             sw.Start();
             do
             {
-                elements = IESelector.GetElementsWithuiSelector(sel, from);
+                elements = IESelector.GetElementsWithuiSelector(sel, from, maxresults);
             } while (elements .Count() == 0 && sw.Elapsed < timeout);
-            if (elements.Count() > maxresults) elements = elements.Take(maxresults).ToArray();  
+            if (elements.Count() > maxresults) elements = elements.Take(maxresults).ToArray();
+            if (elements.Length < minresults)
+            {
+                Log.Selector(string.Format("Windows.GetElement::Failed locating " + minresults + " item(s) {0:mm\\:ss\\.fff}", sw.Elapsed));
+                throw new ElementNotFoundException("Failed locating " + minresults + " item(s)");
+            }
+
             context.SetValue(Elements, elements);
             IEnumerator<IEElement> _enum = elements.ToList().GetEnumerator();
             context.SetValue(_elements, _enum);
@@ -83,11 +100,7 @@ namespace OpenRPA.IE
             {
                 context.ScheduleAction(Body, _enum.Current, OnBodyComplete);
             }
-            else
-            {
-                throw new Interfaces.ElementNotFoundException("Failed locating item");
-            }
-        }
+       }
         private void OnBodyComplete(NativeActivityContext context, ActivityInstance completedInstance)
         {
             IEnumerator<IEElement> _enum = _elements.Get(context);

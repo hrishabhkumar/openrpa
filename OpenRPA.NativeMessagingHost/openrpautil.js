@@ -1,4 +1,5 @@
 document.openrpadebug = false;
+document.openrpauniquexpathids = ['ng-model', 'ng-reflect-name']; // aria-label
 function inIframe() {
     var result = true;
     try {
@@ -10,20 +11,23 @@ function inIframe() {
     }
     return result;
 }
-
 if (true == false) {
     console.debug('skip declaring openrpautil class');
     document.openrpautil = {};
 } else {
     if (window.openrpautil_contentlistner === null || window.openrpautil_contentlistner === undefined) {
         function remotePushEvent(evt) {
-            if (evt.data.functionName == "mousemove") {
-                console.log(evt.data);
+            var message = evt.data;
+            if (typeof message === "string") {
+                try {
+                    message = JSON.parse(message);
+                } catch (e) { }
+            }
+            if (evt.data != null && evt.data.functionName == "mousemove") {
                 openrpautil.parent = evt.data;
                 try {
                     notifyFrames();
-                } catch (e) {
-                }
+                } catch (e) { }
             }
         }
         if (window.addEventListener) {
@@ -51,9 +55,10 @@ if (true == false) {
                 height = parseInt(height.replace('px', '')) * 0.85;
                 message.uiy += (height | 0);
 
-                message.cssPath = UTILS.cssPath(targetElement);
+                message.cssPath = UTILS.cssPath(targetElement, false);
                 message.xPath = UTILS.xPath(targetElement, true);
                 //console.log('postMessage to', targetElement, { uix: message.uix, uiy: message.uiy });
+                message = JSON.stringify(message);
                 targetElement.contentWindow.postMessage(message, '*');
             }
             var doFrames = () => {
@@ -77,7 +82,7 @@ if (true == false) {
                         height = parseInt(height.replace('px', '')) * 0.85;
                         message.uiy += (height | 0);
 
-                        message.cssPath = UTILS.cssPath(targetElement);
+                        message.cssPath = UTILS.cssPath(targetElement, false);
                         message.xPath = UTILS.xPath(targetElement, true);
                         targetElement.contentDocument.openrpautil.parent = message;
                     }
@@ -87,7 +92,12 @@ if (true == false) {
             };
             doFrames();
         }
-        window.addEventListener('load', notifyFrames);
+        if (!document.URL.startsWith("https://docs.google.com/spreadsheets/d")) {
+            window.addEventListener('load', notifyFrames);
+        } else {
+            console.log("skip google docs");
+        }
+
 
         var runtimeOnMessage = function (sender, message, fnResponse) {
             try {
@@ -127,6 +137,10 @@ if (true == false) {
                     return "pong";
                 },
                 init: function () {
+                    if (document.URL.startsWith("https://docs.google.com/spreadsheets/d")) {
+                        console.log("skip google docs");
+                        return;
+                    }
                     document.addEventListener('mousemove', function (e) { openrpautil.pushEvent('mousemove', e); }, true);
                     if (inIframe()) return;
                     document.addEventListener('click', function (e) { openrpautil.pushEvent('click', e); }, true);
@@ -156,6 +170,7 @@ if (true == false) {
                 },
                 clickelement: function (message) {
                     document.openrpadebug = message.debug;
+                    if (message.uniquexpathids) document.openrpauniquexpathids = message.uniquexpathids;
                     var ele = null;
                     if (ele === null && message.zn_id !== null && message.zn_id !== undefined && message.zn_id > -1) {
                         message.xPath = '//*[@zn_id="' + message.zn_id + '"]';
@@ -174,9 +189,20 @@ if (true == false) {
                     }
                     try {
                         if (ele !== null && ele !== undefined) {
-                            var events = ["mousedown", "mouseup", "click"];
-                            for (var i = 0; i < events.length; ++i) {
-                                simulate(ele, events[i]);
+                            var tagname = ele.tagName;
+                            var tagtype = ele.getAttribute("type");
+                            if (tagname) tagname = tagname.toLowerCase();
+                            if (tagtype) tagtype = tagtype.toLowerCase();
+                            if (tagname == "input" || tagtype == "type") {
+                                var events = ["mousedown", "mouseup", "click", "submit"];
+                                for (var i = 0; i < events.length; ++i) {
+                                    simulate(ele, events[i]);
+                                }
+                            } else {
+                                var events = ["mousedown", "mouseup", "click"];
+                                for (var i = 0; i < events.length; ++i) {
+                                    simulate(ele, events[i]);
+                                }
                             }
                         }
                     } catch (e) {
@@ -187,9 +213,79 @@ if (true == false) {
                     if (document.openrpadebug) console.log(test);
                     return test;
                 },
+                focuselement: function (message) {
+                    document.openrpadebug = message.debug;
+                    if (message.uniquexpathids) document.openrpauniquexpathids = message.uniquexpathids;
+                    var ele = null;
+                    if (ele === null && message.zn_id !== null && message.zn_id !== undefined && message.zn_id > -1) {
+                        message.xPath = '//*[@zn_id="' + message.zn_id + '"]';
+                    }
+                    if (message.xPath) {
+                        var xpathEle = document.evaluate(message.xPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        if (xpathEle === null) message.xPath = 'false';
+                        if (xpathEle !== null) message.xPath = 'true';
+                        ele = xpathEle;
+                    }
+                    if (message.cssPath && ele === null) {
+                        var cssEle = document.querySelector(message.cssPath);
+                        if (cssEle === null) message.cssPath = 'false';
+                        if (cssEle !== null) message.cssPath = 'true';
+                        ele = cssEle;
+                    }
+                    try {
+                        if (ele !== null && ele !== undefined) {
+                            ele.scrollIntoView({ block: "center", behaviour: "smooth" });
+                            var eventType = "onfocusin" in ele ? "focusin" : "focus",
+                                bubbles = "onfocusin" in ele,
+                                event;
+
+                            if ("createEvent" in document) {
+                                event = document.createEvent("Event");
+                                event.initEvent(eventType, bubbles, true);
+                            }
+                            else if ("Event" in window) {
+                                event = new Event(eventType, { bubbles: bubbles, cancelable: true });
+                            }
+
+                            ele.focus();
+                            ele.dispatchEvent(event);
+                            // getelement(message);
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        message.error = e;
+                    }
+                    var test = JSON.parse(JSON.stringify(message));
+                    if (document.openrpadebug) console.log(test);
+                    return test;
+                },
+                __getelement: function (message) {
+                    document.openrpadebug = message.debug;
+                    if (message.uniquexpathids) document.openrpauniquexpathids = message.uniquexpathids;
+                    var ele = null;
+                    if (ele === null && message.zn_id !== null && message.zn_id !== undefined && message.zn_id > -1) {
+                        message.xPath = '//*[@zn_id="' + message.zn_id + '"]';
+                    }
+                    if (ele === null && message.xPath) {
+                        var xpathEle = document.evaluate(message.xPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        if (document.openrpadebug) console.log("document.evaluate('" + message.xPath + "', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;");
+                        if (xpathEle === null) message.xPath = 'false';
+                        if (xpathEle !== null) message.xPath = 'true';
+                        ele = xpathEle;
+                    }
+                    if (ele === null && message.cssPath) {
+                        var cssEle = document.querySelector(message.cssPath);
+                        if (document.openrpadebug) console.log("document.querySelector('" + message.cssPath + "');");
+                        if (cssEle === null) message.cssPath = 'false';
+                        if (cssEle !== null) message.cssPath = 'true';
+                        ele = cssEle;
+                    }
+                    return ele;
+                },
                 getelements: function (message) {
                     try {
                         document.openrpadebug = message.debug;
+                        if (message.uniquexpathids) document.openrpauniquexpathids = message.uniquexpathids;
                         var fromele = null;
                         if (message.fromxPath != null && message.fromxPath != "") {
                             if (message.fromxPath != null && message.fromxPath != "") {
@@ -259,6 +355,7 @@ if (true == false) {
                                 for (var i = 0; i < ele.length; i++) {
                                     var result = Object.assign({}, base);
                                     if (message.data === 'getdom') {
+                                        console.log('getdom');
                                         result.result = openrpautil.mapDOM(ele[i], false, true);
                                     }
                                     else {
@@ -302,26 +399,8 @@ if (true == false) {
                     return test;
                 },
                 getelement: function (message) {
-                    document.openrpadebug = message.debug;
                     try {
-                        var ele = null;
-                        if (ele === null && message.zn_id !== null && message.zn_id !== undefined && message.zn_id > -1) {
-                            message.xPath = '//*[@zn_id="' + message.zn_id + '"]';
-                        }
-                        if (ele === null && message.xPath) {
-                            var xpathEle = document.evaluate(message.xPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                            if (document.openrpadebug) console.log("document.evaluate('" + message.xPath + "', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;");
-                            if (xpathEle === null) message.xPath = 'false';
-                            if (xpathEle !== null) message.xPath = 'true';
-                            ele = xpathEle;
-                        }
-                        if (ele === null && message.cssPath) {
-                            var cssEle = document.querySelector(message.cssPath);
-                            if (document.openrpadebug) console.log("document.querySelector('" + message.cssPath + "');");
-                            if (cssEle === null) message.cssPath = 'false';
-                            if (cssEle !== null) message.cssPath = 'true';
-                            ele = cssEle;
-                        }
+                        var ele = openrpautil.__getelement(message);
                         if (ele !== null && ele !== undefined) {
                             try {
                                 try {
@@ -335,12 +414,28 @@ if (true == false) {
                         }
                         if (ele !== null) {
                             if (message.data === 'getdom') {
-                                message.result = openrpautil.mapDOM(ele, true, true);
+                                message.result = openrpautil.mapDOM(ele, true, true, false);
+                            }
+                            else if (message.data === 'innerhtml')
+                            {
+                                message.result = openrpautil.mapDOM(ele, true, true, true);
                             }
                             else {
                                 message.result = openrpautil.mapDOM(ele, true);
                             }
                             message.zn_id = openrpautil.getuniqueid(ele);
+                            if (openrpautil.parent != null) {
+                                message.parents = openrpautil.parent.parents + 1;
+                                message.uix += openrpautil.parent.uix;
+                                message.uiy += openrpautil.parent.uiy;
+                                message.xpaths = openrpautil.parent.xpaths.slice(0);
+                            } else if (inIframe()) {
+                                // TODO: exit?
+                                //return;
+                                var currentFramePosition = openrpautil.currentFrameAbsolutePosition();
+                                message.uix += currentFramePosition.x;
+                                message.uiy += currentFramePosition.y;
+                            }
                         }
 
                     } catch (e) {
@@ -374,8 +469,95 @@ if (true == false) {
                         ele = cssEle;
                     }
                     if (ele) {
+                        var data = message.data;
+                        try {
+                            data = Base64.decode(data);
+                        } catch (e) {
+                            console.error(e);
+                            console.log(data);
+                        }
+                        if (document.openrpadebug) console.log('focus', ele);
                         ele.focus();
-                        ele.value = message.data;
+                        if (ele.tagName == "INPUT" && ele.getAttribute("type") == "checkbox") {
+                            if (data === true || data === "true" || data === "True") {
+                                if (document.openrpadebug) console.log('set checked = true');
+                                ele.checked = true;
+                            } else {
+                                if (document.openrpadebug) console.log('set checked = false');
+                                ele.checked = false;
+                            }
+                        } else if (message.result == "innerhtml") {
+                            if (document.openrpadebug) console.log('set value', data);
+                            ele.innerHTML = data;
+                        } else if (ele.tagName == "DIV") {
+                            if (document.openrpadebug) console.log('set value', data);
+                            ele.innerText = data;
+                        } else {
+                            if (document.openrpadebug) console.log('set value', data);
+                            ele.value = data;
+                        }
+                        try {
+                            var evt = document.createEvent("HTMLEvents");
+                            evt.initEvent("change", true, true);
+                            ele.dispatchEvent(evt);
+                        } catch (e) {
+                            console.error(e);
+                        }
+                        try {
+                            var evt = document.createEvent("HTMLEvents");
+                            evt.initEvent("input", true, true);
+                            ele.dispatchEvent(evt);
+                        } catch (e) {
+                            console.error(e);
+                        }
+                        //ele.blur();
+                        //var events = ["keydown", "keyup", "keypress"];
+                        //for (var i = 0; i < events.length; ++i) {
+                        //    simulate(ele, events[i]);
+                        //}
+                    }
+                    var test = JSON.parse(JSON.stringify(message));
+                    return test;
+                },
+                updateelementvalues: function (message) {
+                    var ele = null;
+                    if (ele === null && message.zn_id !== null && message.zn_id !== undefined && message.zn_id > -1) {
+                        message.xPath = '//*[@zn_id="' + message.zn_id + '"]';
+                        var znEle = document.evaluate(message.xPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        if (znEle === null) message.xPath = 'false';
+                        if (znEle !== null) message.xPath = 'true';
+                        ele = znEle;
+                    }
+                    if (ele === null && message.xPath) {
+                        var xpathEle = document.evaluate(message.xPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        if (xpathEle === null) message.xPath = 'false';
+                        if (xpathEle !== null) message.xPath = 'true';
+                        ele = xpathEle;
+                    }
+                    if (ele === null && message.cssPath) {
+                        var cssEle = document.querySelector(message.cssPath);
+                        if (cssEle === null) message.cssPath = 'false';
+                        if (cssEle !== null) message.cssPath = 'true';
+                        ele = cssEle;
+                    }
+                    if (ele) {
+                        var data = message.data;
+                        try {
+                            data = Base64.decode(data);
+                        } catch (e) {
+                            console.error(e);
+                            console.log(data);
+                        }
+                        ele.focus();
+                        var values = JSON.parse(data);
+                        if (ele.tagName && ele.tagName.toLowerCase() == "select") {
+                            for (i = 0; i < ele.options.length; i++) {
+                                if (values.indexOf(ele.options[i].value) > -1) {
+                                    ele.options[i].selected = true;
+                                } else { ele.options[i].selected = false; }
+                            }
+                        }
+
                         try {
                             var evt = document.createEvent("HTMLEvents");
                             evt.initEvent("change", true, true);
@@ -479,7 +661,7 @@ if (true == false) {
                                             } else {
                                                 positions.push({ x: 0, y: 0 });
                                             }
-                                            
+
                                         }
                                     } catch (e) {
                                         // console.debug(e);
@@ -495,7 +677,7 @@ if (true == false) {
                                 break;
                             }
                     }
-                    
+
                     var result = positions.reduce((accumulator, currentValue) => {
                         return {
                             x: (accumulator.x + currentValue.x) | 0,
@@ -560,12 +742,12 @@ if (true == false) {
                             // TODO: exit?
                             //return;
                             var currentFramePosition = openrpautil.currentFrameAbsolutePosition();
-                            console.log({ uix: message.uix, uiy: message.uiy, parent: message.parents }, currentFramePosition);
+                            // console.log({ uix: message.uix, uiy: message.uiy, parent: message.parents }, currentFramePosition);
                             message.uix += currentFramePosition.x;
                             message.uiy += currentFramePosition.y;
                         }
                         // console.log('inIframe: ' + inIframe());
-                        message.cssPath = UTILS.cssPath(targetElement);
+                        message.cssPath = UTILS.cssPath(targetElement, false);
                         message.xPath = UTILS.xPath(targetElement, true);
                         message.zn_id = openrpautil.getuniqueid(targetElement);
                         message.c = targetElement.childNodes.length;
@@ -600,7 +782,27 @@ if (true == false) {
                     element.setAttribute('zn_id', cachecount);
                     return cachecount;
                 },
-
+                executescript: function (message) {
+                    try {
+                        if (document.openrpadebug) console.log('script', message.script);
+                        // message.result = eval(message.script);
+                        var s = document.createElement('script');
+                        s.async = false;
+                        s.src = message.script;
+                        s.addEventListener('load', function () {
+                            document.dynjsloaded = true;
+                        });
+                        document.body.appendChild(s);
+                        if (document.openrpadebug) console.log('result', message.result);
+                    } catch (e) {
+                        console.error(e);
+                        message.error = e;
+                    }
+                    delete message.script;
+                    var test = JSON.parse(JSON.stringify(message));
+                    if (document.openrpadebug) console.log(test);
+                    return test;
+                },
                 fullPath: function (el) {
                     var names = [];
                     while (el.parentNode) {
@@ -694,7 +896,7 @@ if (true == false) {
                     }
                     return node;
                 },
-                mapDOM: function (element, json, mapdom) {
+                mapDOM: function (element, json, mapdom, innerhtml) {
                     var maxiden = 40;
                     if (mapdom !== true) maxiden = 1;
                     if (maxiden === null || maxiden === undefined) maxiden = 20;
@@ -719,7 +921,7 @@ if (true == false) {
                         object["tagName"] = element.tagName;
                         if (ident === 0) {
                             object["xPath"] = UTILS.xPath(element, true);
-                            object["cssPath"] = UTILS.cssPath(element);
+                            object["cssPath"] = UTILS.cssPath(element, false);
                             if (object["tagName"] !== 'STYLE' && object["tagName"] !== 'SCRIPT' && object["tagName"] !== 'HEAD' && object["tagName"] !== 'HTML') {
                                 if (element.innerText !== undefined && element.innerText !== null && element.innerText !== '') {
                                     object["innerText"] = element.innerText;
@@ -801,6 +1003,25 @@ if (true == false) {
                     treeObject["isvisibleonscreen"] = openrpautil.isVisibleOnScreen(element);
                     treeObject["disabled"] = element.disabled;
                     treeObject["innerText"] = element.innerText;
+                    if (innerhtml) {
+                        treeObject["innerhtml"] = element.innerHTML;
+                    }
+                    if (element.tagName == "INPUT" && element.getAttribute("type") == "checkbox" ) {
+                        treeObject["checked"] = element.checked;
+                    }
+                    if (element.tagName && element.tagName.toLowerCase() == "options") {
+                        treeObject["selected"] = element.selected;
+                    }
+                    if (element.tagName && element.tagName.toLowerCase() == "select") {
+                        var selectedvalues = [];
+                        for (i = 0; i < element.options.length; i++) {
+                            if (element.options[i].selected) {
+                                selectedvalues.push(element.options[i].value);
+                                treeObject["text"] = element.options[i].text;
+                            }
+                        }
+                        treeObject["values"] = selectedvalues;
+                    }
 
                     //updateelementtext
                     if (treeObject["disabled"] === null || treeObject["disabled"] === undefined) treeObject["disabled"] = false;
@@ -879,6 +1100,289 @@ if (true == false) {
                         nodeElem = nodeElem.parentNode;
                     }
                     return parts.length ? '/' + parts.reverse().join('/') : '';
+                },
+
+
+                // https://stackoverflow.com/questions/4158847/how-to-simulate-key-presses-or-a-click-with-javascript/4176116#4176116
+// https://stackoverflow.com/questions/9515704/use-a-content-script-to-access-the-page-context-variables-and-functions/9517879#9517879
+// https://stackoverflow.com/questions/13987380/how-to-to-initialize-keyboard-event-with-given-char-keycode-in-a-chrome-extensio
+                dispatchKeyboardEvent(element, type, character, keyCode, charCode) {
+                    if (character == null) character = String.fromCharCode(charCode);
+                    if (charCode == null) charCode = character.charCodeAt(0);
+                    if (keyCode == null) keyCode = character.charCodeAt(0); // view: window,
+                    var event = new KeyboardEvent(type, { "bubbles": true, "cancelable": true, "key": character, "ctrlKey": false, "shiftKey": false, "altKey": false, "charCode": charCode, "keyCode": keyCode, });
+                    var doc = document.ownerDocument || document;
+                    if (element == null) element = doc;
+                    element.dispatchEvent(event);
+                },
+                dispatchInputEvent(element, type, inputType, data) {
+                    var event = new InputEvent(type, { inputType: inputType, data: data });
+                    event.simulated = true;
+                    var doc = document.ownerDocument || document;
+                    if (element == null) element = doc;
+                    element.dispatchEvent(event);
+                },
+                sendtext(message) {
+                    try {
+                        var data = message.data;
+                        try {
+                            data = Base64.decode(data);
+                        } catch (e) {
+                            console.error(e);
+                            console.log(data);
+                        }
+                        const element = openrpautil.__getelement(message);
+                        if (element == null) { throw new Error('SendText, failed locating element'); }
+                        let parsekeys = false;
+                        if (message.reset == true) { element.value = ''; delete message.reset; }
+                        if (message.parsekeys == true) { parsekeys = true; delete message.parsekeys; }
+                        let specialkey = null;
+                        for (let i = 0; i < data.length; ++i) {
+                            let character = data[i];
+                            let keyCode = character.toUpperCase().charCodeAt(i);
+                            let charCode = data.charCodeAt(i);
+                            if (character == "{") {
+                                specialkey = "";
+                                continue;
+                            } else if (character != "}" && specialkey != null) {
+                                specialkey += character;
+                                continue;
+                            } else if (character == "}") {
+                                character = undefined; keyCode = 0; charCode = 0;
+                                if (openrpautil.keynames[specialkey] != null) {
+                                    keyCode = openrpautil.keynames[specialkey];
+                                } else {
+                                    switch (specialkey.toLowerCase()) {
+                                        case "left55": keyCode = 37; break;
+                                        case "up55": keyCode = 38; break;
+                                        case "right55": keyCode = 39; break;
+                                        case "down55": keyCode = 40; break;
+                                    }
+                                }
+                            }
+
+                            openrpautil.dispatchKeyboardEvent(element, 'keydown', character, keyCode, charCode);
+                            openrpautil.dispatchKeyboardEvent(element, 'keypress', character, keyCode, charCode);
+                            openrpautil.dispatchInputEvent(element, "beforeinput", "insertText", character);
+                            if (specialkey == null) element.value += character;
+                            openrpautil.dispatchKeyboardEvent(element, 'keyup', character, keyCode, charCode);
+                            specialkey == null
+                        }
+                    } catch (e) {
+                        console.error('error in getelements');
+                        message.error = e;
+                        console.error(e);
+                    }
+                    var test = JSON.parse(JSON.stringify(message));
+                    if (document.openrpadebug) console.log(test);
+                    return test;
+                },
+                settext(message) {
+                    message.reset = true;
+                    return openrpautil.sendtext(message);
+                },
+                sendkeys(message) {
+                    message.parsekeys = true;
+                    return openrpautil.sendtext(message);
+                },
+
+                keynames: {
+                    'break': 3,
+                    'backspace / delete': 8,
+                    'tab': 9,
+                    'clear': 12,
+                    'enter': 13,
+                    'shift': 16,
+                    'ctrl': 17,
+                    'alt': 18,
+                    'pause/break': 19,
+                    'caps lock': 20,
+                    'hangul': 21,
+                    'hanja': 25,
+                    'escape': 27,
+                    'conversion': 28,
+                    'non-conversion': 29,
+                    'spacebar': 32,
+                    'page up': 33,
+                    'page down': 34,
+                    'end': 35,
+                    'home': 36,
+                    'leftarrow': 37,
+                    'left': 37,
+                    'uparrow': 38,
+                    'up': 38,
+                    'rightarrow': 39,
+                    'right': 39,
+                    'downarrow': 40,
+                    'down': 40,
+                    'select': 41,
+                    'print': 42,
+                    'execute': 43,
+                    'printscreen': 44,
+                    'prtsrc': 44,
+                    'insert': 45,
+                    'delete': 46,
+                    'help': 47,
+                    '0': 48,
+                    '1': 49,
+                    '2': 50,
+                    '3': 51,
+                    '4': 52,
+                    '5': 53,
+                    '6': 54,
+                    '7': 55,
+                    '8': 56,
+                    '9': 57,
+                    ':': 58,
+                    'ffsemicolon': 59,
+                    'equals': 59,
+                    '<': 60,
+                    'ffequals': 61,
+                    'ß': 63,
+                    'ff@': 64,
+                    'a': 65,
+                    'b': 66,
+                    'c': 67,
+                    'd': 68,
+                    'e': 69,
+                    'f': 70,
+                    'g': 71,
+                    'h': 72,
+                    'i': 73,
+                    'j': 74,
+                    'k': 75,
+                    'l': 76,
+                    'm': 77,
+                    'n': 78,
+                    'o': 79,
+                    'p': 80,
+                    'q': 81,
+                    'r': 82,
+                    's': 83,
+                    't': 84,
+                    'u': 85,
+                    'v': 86,
+                    'w': 87,
+                    'x': 88,
+                    'y': 89,
+                    'z': 90,
+                    'windows': 91,
+                    'windowskey': 91,
+                    'leftwindows': 91,
+                    'leftwindowskey': 91,
+                    '?': 91,
+                    'searchkey': 91, // Windows Key / Left ? / Chromebook Search key
+                    'righttwindows': 92,
+                    'rightwindowskey': 92,
+                    'windowsmenu': 93, // 'Windows Menu / Right ?',
+                    'sleep': 95,
+                    'numpad 0': 96,
+                    'numpad 1': 97,
+                    'numpad 2': 98,
+                    'numpad 3': 99,
+                    'numpad 4': 100,
+                    'numpad 5': 101,
+                    'numpad 6': 102,
+                    'numpad 7': 103,
+                    'numpad 8': 104,
+                    'numpad 9': 105,
+                    'multiply': 106,
+                    'add': 107,
+                    'numpad period (firefox)': 108,
+                    'subtract': 109,
+                    'decimal point': 110,
+                    'divide': 111,
+                    'f1': 112,
+                    'f2': 113,
+                    'f3': 114,
+                    'f4': 115,
+                    'f5': 116,
+                    'f6': 117,
+                    'f7': 118,
+                    'f8': 119,
+                    'f9': 120,
+                    'f10': 121,
+                    'f11': 122,
+                    'f12': 123,
+                    'f13': 124,
+                    'f14': 125,
+                    'f15': 126,
+                    'f16': 127,
+                    'f17': 128,
+                    'f18': 129,
+                    'f19': 130,
+                    'f20': 131,
+                    'f21': 132,
+                    'f22': 133,
+                    'f23': 134,
+                    'f24': 135,
+                    'f25': 136,
+                    'f26': 137,
+                    'f27': 138,
+                    'f28': 139,
+                    'f29': 140,
+                    'f30': 141,
+                    'f31': 142,
+                    'f32': 143,
+                    'numlock': 144,
+                    'scroll lock': 145,
+                    'airplane mode': 151,
+                    '^': 160,
+                    '!': 161,
+                    '?': 162,
+                    '#': 163,
+                    '$': 164,
+                    'ù': 165,
+                    'pagebackward': 166,
+                    'pageforward': 167,
+                    'refresh': 168,
+                    'closingparen': 169,
+                    '*': 170,
+                    '~': 171,
+                    'homekey': 172,
+                    'home': 172,
+                    'ffminus': 173,
+                    'minus': 173,
+                    'mute': 173,
+                    'unmute': 173,
+                    'decrease volume level': 174,
+                    'increase volume level': 175,
+                    'next': 176,
+                    'previous': 177,
+                    'stop': 178,
+                    'play/pause': 179,
+                    'email': 180,
+                    'mute/unmute (firefox)': 181,
+                    'decrease volume level (firefox)': 182,
+                    'increase volume level (firefox)': 183,
+                    'semi-colon / ñ': 186,
+                    'equal sign': 187,
+                    'comma': 188,
+                    'dash': 189,
+                    'period': 190,
+                    'forward slash / ç': 191,
+                    'grave accent / ñ / æ / ö': 192,
+                    '?, / or °': 193,
+                    'numpad period (chrome)': 194,
+                    'open bracket': 219,
+                    'back slash': 220,
+                    'close bracket / å': 221,
+                    'single quote / ø / ä': 222,
+                    '`': 223,
+                    'left or right ? key (firefox)': 224,
+                    'altgr': 225,
+                    '< /git >, left back slash': 226,
+                    'GNOME Compose Key': 230,
+                    'ç': 231,
+                    'XF86Forward': 233,
+                    'XF86Back': 234,
+                    'non-conversion': 235,
+                    'alphanumeric': 240,
+                    'hiragana/katakana': 242,
+                    'half-width/full-width': 243,
+                    'kanji': 244,
+                    'unlock trackpad (Chrome/Edge)': 251,
+                    'toggle touchpad': 255
                 }
 
             };
@@ -1003,16 +1507,20 @@ if (true == false) {
                     return null; // Error.
                 switch (node.nodeType) {
                     case Node.ELEMENT_NODE:
-                        // 
-                        if (optimized && node.getAttribute("ng-model"))
-                            return new UTILS.DOMNodePathStep("//*[@ng-model=\"" + node.getAttribute("ng-model") + "\"]", true);
-                        if (optimized && node.getAttribute("ng-reflect-name"))
-                            return new UTILS.DOMNodePathStep("//*[@ng-reflect-name=\"" + node.getAttribute("ng-reflect-name") + "\"]", true);
-                        if (optimized && node.getAttribute("aria-label"))
-                            return new UTILS.DOMNodePathStep("//*[@aria-label=\"" + node.getAttribute("aria-label") + "\"]", true);
-                        if (optimized && node.getAttribute("id"))
-                            return new UTILS.DOMNodePathStep("//*[@id=\"" + node.getAttribute("id") + "\"]", true);
                         ownValue = node.localName;
+                        if (optimized) {
+
+                            for (var i = 0; i < document.openrpauniquexpathids.length; i++) {
+                                var id = document.openrpauniquexpathids[i].toLowerCase();
+                                if (node.getAttribute(id))
+                                    return new UTILS.DOMNodePathStep("//" + ownValue + "[@" + id + "=\"" + node.getAttribute(id) + "\"]", true);
+                                id = id.toUpperCase();
+                                if (node.getAttribute(id))
+                                    return new UTILS.DOMNodePathStep("//" + ownValue + "[@" + id + "=\"" + node.getAttribute(id) + "\"]", true);
+                            }
+                        }
+                        if (optimized && node.getAttribute("id"))
+                            return new UTILS.DOMNodePathStep("//" + ownValue + "[@id=\"" + node.getAttribute("id") + "\"]", true);
                         break;
                     case Node.ATTRIBUTE_NODE:
                         ownValue = "@" + node.nodename;
@@ -1108,7 +1616,7 @@ if (true == false) {
                 }
                 var nodeName = node.nodeName.toLowerCase();
 
-                if (id)
+                if (id && optimized)
                     return new UTILS.DOMNodePathStep(nodeName.toLowerCase() + idSelector(id), true);
                 var parent = node.parentNode;
                 if (!parent || parent.nodeType === Node.DOCUMENT_NODE)
@@ -1216,4 +1724,251 @@ if (true == false) {
         }
     }
 }
+
+//
+// THIS FILE IS AUTOMATICALLY GENERATED! DO NOT EDIT BY HAND!
+//
+; (function (global, factory) {
+    typeof exports === 'object' && typeof module !== 'undefined'
+        ? module.exports = factory()
+        : typeof define === 'function' && define.amd
+            ? define(factory) :
+            // cf. https://github.com/dankogai/js-base64/issues/119
+            (function () {
+                // existing version for noConflict()
+                const _Base64 = global.Base64;
+                const gBase64 = factory();
+                gBase64.noConflict = () => {
+                    global.Base64 = _Base64;
+                    return gBase64;
+                };
+                if (global.Meteor) { // Meteor.js
+                    Base64 = gBase64;
+                }
+                global.Base64 = gBase64;
+            })();
+}((typeof self !== 'undefined' ? self
+    : typeof window !== 'undefined' ? window
+        : typeof global !== 'undefined' ? global
+            : this
+), function () {
+    'use strict';
+
+    /**
+     *  base64.ts
+     *
+     *  Licensed under the BSD 3-Clause License.
+     *    http://opensource.org/licenses/BSD-3-Clause
+     *
+     *  References:
+     *    http://en.wikipedia.org/wiki/Base64
+     *
+     * @author Dan Kogai (https://github.com/dankogai)
+     */
+    const version = '3.4.5';
+    /**
+     * @deprecated use lowercase `version`.
+     */
+    const VERSION = version;
+    const _hasatob = typeof atob === 'function';
+    const _hasbtoa = typeof btoa === 'function';
+    const _hasBuffer = typeof Buffer === 'function';
+    const b64ch = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    const b64chs = [...b64ch];
+    const b64tab = ((a) => {
+        let tab = {};
+        a.forEach((c, i) => tab[c] = i);
+        return tab;
+    })(b64chs);
+    const b64re = /^(?:[A-Za-z\d+\/]{4})*?(?:[A-Za-z\d+\/]{2}(?:==)?|[A-Za-z\d+\/]{3}=?)?$/;
+    const _fromCC = String.fromCharCode.bind(String);
+    const _U8Afrom = typeof Uint8Array.from === 'function'
+        ? Uint8Array.from.bind(Uint8Array)
+        : (it, fn = (x) => x) => new Uint8Array(Array.prototype.slice.call(it, 0).map(fn));
+    const _mkUriSafe = (src) => src
+        .replace(/[+\/]/g, (m0) => m0 == '+' ? '-' : '_')
+        .replace(/=+$/m, '');
+    const _tidyB64 = (s) => s.replace(/[^A-Za-z0-9\+\/]/g, '');
+    /**
+     * polyfill version of `btoa`
+     */
+    const btoaPolyfill = (bin) => {
+        // console.log('polyfilled');
+        let u32, c0, c1, c2, asc = '';
+        const pad = bin.length % 3;
+        for (let i = 0; i < bin.length;) {
+            if ((c0 = bin.charCodeAt(i++)) > 255 ||
+                (c1 = bin.charCodeAt(i++)) > 255 ||
+                (c2 = bin.charCodeAt(i++)) > 255)
+                throw new TypeError('invalid character found');
+            u32 = (c0 << 16) | (c1 << 8) | c2;
+            asc += b64chs[u32 >> 18 & 63]
+                + b64chs[u32 >> 12 & 63]
+                + b64chs[u32 >> 6 & 63]
+                + b64chs[u32 & 63];
+        }
+        return pad ? asc.slice(0, pad - 3) + "===".substring(pad) : asc;
+    };
+    /**
+     * does what `window.btoa` of web browsers do.
+     * @param {String} bin binary string
+     * @returns {string} Base64-encoded string
+     */
+    const _btoa = _hasbtoa ? (bin) => btoa(bin)
+        : _hasBuffer ? (bin) => Buffer.from(bin, 'binary').toString('base64')
+            : btoaPolyfill;
+    const _fromUint8Array = _hasBuffer
+        ? (u8a) => Buffer.from(u8a).toString('base64')
+        : (u8a) => {
+            // cf. https://stackoverflow.com/questions/12710001/how-to-convert-uint8-array-to-base64-encoded-string/12713326#12713326
+            const maxargs = 0x1000;
+            let strs = [];
+            for (let i = 0, l = u8a.length; i < l; i += maxargs) {
+                strs.push(_fromCC.apply(null, u8a.subarray(i, i + maxargs)));
+            }
+            return _btoa(strs.join(''));
+        };
+    /**
+     * converts a Uint8Array to a Base64 string.
+     * @param {boolean} [urlsafe] URL-and-filename-safe a la RFC4648 §5
+     * @returns {string} Base64 string
+     */
+    const fromUint8Array = (u8a, urlsafe = false) => urlsafe ? _mkUriSafe(_fromUint8Array(u8a)) : _fromUint8Array(u8a);
+    /**
+     * @deprecated should have been internal use only.
+     * @param {string} src UTF-8 string
+     * @returns {string} UTF-16 string
+     */
+    const utob = (src) => unescape(encodeURIComponent(src));
+    //
+    const _encode = _hasBuffer
+        ? (s) => Buffer.from(s, 'utf8').toString('base64')
+        : (s) => _btoa(utob(s));
+    /**
+     * converts a UTF-8-encoded string to a Base64 string.
+     * @param {boolean} [urlsafe] if `true` make the result URL-safe
+     * @returns {string} Base64 string
+     */
+    const encode = (src, urlsafe = false) => urlsafe
+        ? _mkUriSafe(_encode(src))
+        : _encode(src);
+    /**
+     * converts a UTF-8-encoded string to URL-safe Base64 RFC4648 §5.
+     * @returns {string} Base64 string
+     */
+    const encodeURI = (src) => encode(src, true);
+    /**
+     * @deprecated should have been internal use only.
+     * @param {string} src UTF-16 string
+     * @returns {string} UTF-8 string
+     */
+    const btou = (src) => decodeURIComponent(escape(src));
+    /**
+     * polyfill version of `atob`
+     */
+    const atobPolyfill = (asc) => {
+        // console.log('polyfilled');
+        asc = asc.replace(/\s+/g, '');
+        if (!b64re.test(asc))
+            throw new TypeError('malformed base64.');
+        asc += '=='.slice(2 - (asc.length & 3));
+        let u24, bin = '', r1, r2;
+        for (let i = 0; i < asc.length;) {
+            u24 = b64tab[asc.charAt(i++)] << 18
+                | b64tab[asc.charAt(i++)] << 12
+                | (r1 = b64tab[asc.charAt(i++)]) << 6
+                | (r2 = b64tab[asc.charAt(i++)]);
+            bin += r1 === 64 ? _fromCC(u24 >> 16 & 255)
+                : r2 === 64 ? _fromCC(u24 >> 16 & 255, u24 >> 8 & 255)
+                    : _fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255);
+        }
+        return bin;
+    };
+    /**
+     * does what `window.atob` of web browsers do.
+     * @param {String} asc Base64-encoded string
+     * @returns {string} binary string
+     */
+    const _atob = _hasatob ? (asc) => atob(_tidyB64(asc))
+        : _hasBuffer ? (asc) => Buffer.from(asc, 'base64').toString('binary')
+            : atobPolyfill;
+    const _decode = _hasBuffer
+        ? (a) => Buffer.from(a, 'base64').toString('utf8')
+        : (a) => btou(_atob(a));
+    const _unURI = (a) => _tidyB64(a.replace(/[-_]/g, (m0) => m0 == '-' ? '+' : '/'));
+    /**
+     * converts a Base64 string to a UTF-8 string.
+     * @param {String} src Base64 string.  Both normal and URL-safe are supported
+     * @returns {string} UTF-8 string
+     */
+    const decode = (src) => _decode(_unURI(src));
+    /**
+     * converts a Base64 string to a Uint8Array.
+     */
+    const toUint8Array = _hasBuffer
+        ? (a) => _U8Afrom(Buffer.from(_unURI(a), 'base64'))
+        : (a) => _U8Afrom(_atob(_unURI(a)), c => c.charCodeAt(0));
+    const _noEnum = (v) => {
+        return {
+            value: v, enumerable: false, writable: true, configurable: true
+        };
+    };
+    /**
+     * extend String.prototype with relevant methods
+     */
+    const extendString = function () {
+        const _add = (name, body) => Object.defineProperty(String.prototype, name, _noEnum(body));
+        _add('fromBase64', function () { return decode(this); });
+        _add('toBase64', function (urlsafe) { return encode(this, urlsafe); });
+        _add('toBase64URI', function () { return encode(this, true); });
+        _add('toBase64URL', function () { return encode(this, true); });
+        _add('toUint8Array', function () { return toUint8Array(this); });
+    };
+    /**
+     * extend Uint8Array.prototype with relevant methods
+     */
+    const extendUint8Array = function () {
+        const _add = (name, body) => Object.defineProperty(Uint8Array.prototype, name, _noEnum(body));
+        _add('toBase64', function (urlsafe) { return fromUint8Array(this, urlsafe); });
+        _add('toBase64URI', function () { return fromUint8Array(this, true); });
+        _add('toBase64URL', function () { return fromUint8Array(this, true); });
+    };
+    /**
+     * extend Builtin prototypes with relevant methods
+     */
+    const extendBuiltins = () => {
+        extendString();
+        extendUint8Array();
+    };
+    const gBase64 = {
+        version: version,
+        VERSION: VERSION,
+        atob: _atob,
+        atobPolyfill: atobPolyfill,
+        btoa: _btoa,
+        btoaPolyfill: btoaPolyfill,
+        fromBase64: decode,
+        toBase64: encode,
+        encode: encode,
+        encodeURI: encodeURI,
+        encodeURL: encodeURI,
+        utob: utob,
+        btou: btou,
+        decode: decode,
+        fromUint8Array: fromUint8Array,
+        toUint8Array: toUint8Array,
+        extendString: extendString,
+        extendUint8Array: extendUint8Array,
+        extendBuiltins: extendBuiltins,
+    };
+
+    //
+    // export Base64 to the namespace
+    //
+    // ES5 is yet to have Object.assign() that may make transpilers unhappy.
+    // gBase64.Base64 = Object.assign({}, gBase64);
+    gBase64.Base64 = {};
+    Object.keys(gBase64).forEach(k => gBase64.Base64[k] = gBase64[k]);
+    return gBase64;
+}));
 

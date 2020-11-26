@@ -30,13 +30,13 @@ namespace OpenRPA.Activities
             var selector = new Interfaces.Selector.Selector(SelectorString);
             var pluginname = selector.First().Selector;
             var selectors = new Interfaces.Selector.SelectorWindow(pluginname, selector, maxresult);
-
+            // selectors.Owner = GenericTools.MainWindow;  -- Locks up and never returns ?
             if (selectors.ShowDialog() == true)
             {
                 ModelItem.Properties["Selector"].SetValue(new InArgument<string>() { Expression = new Literal<string>(selectors.vm.json) });
                 var Plugin = Interfaces.Plugins.recordPlugins.Where(x => x.Name == pluginname).First();
                 var _base = Plugin.GetElementsWithSelector(selector, null, 10);
-                if (_base == null && _base.Length == 0) return;
+                if (_base == null || _base.Length == 0) return;
                 var ele = _base[0];
                 if(ele != null && !(ele is UIElement))
                 {

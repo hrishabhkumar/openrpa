@@ -57,6 +57,8 @@ namespace OpenRPA.Script.Activities
                 variables.Add(variable.Name, variable.Type);
             }
 
+            if (!variables.ContainsKey("instance")) variables.Add("instance", typeof(IWorkflowInstance));
+
             textEditor.Namespaces = namespaces;
             this.Variables = Variables;
             DataContext = this;
@@ -124,6 +126,7 @@ namespace OpenRPA.Script.Activities
                         var variable = variableModel.GetCurrentValue() as System.Activities.LocationReference;
                         variables.Add(variable.Name, variable.Type);
                     }
+                    if (!variables.ContainsKey("instance")) variables.Add("instance", typeof(IWorkflowInstance));
                     if (language == "VB")
                     {
 
@@ -170,10 +173,11 @@ namespace OpenRPA.Script.Activities
 
                     if (compile.Errors.HasErrors)
                     {
-                        string text = "Compile error: ";
+                        string text = "";
                         foreach (System.CodeDom.Compiler.CompilerError ce in compile.Errors)
                         {
-                            text += "rn" + ce.ToString();
+                            if(!ce.IsWarning) text += ce.ToString();
+                            Log.Error(ce.ToString());
                         }
                         error = text;
                     }
@@ -217,7 +221,7 @@ namespace OpenRPA.Script.Activities
                     //    }
                     //}
                 }
-                GenericTools.RunUI(this, () =>
+                GenericTools.RunUI(() =>
                 {
                     Title = newtitle;
                     this.errors.Text = error;
